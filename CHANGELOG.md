@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.  
 
+## Version 3.15.0 - 2025-12-04
+
+[NEW] Support multiple custom DNS servers
+[IMPROVED] No firewall exceptions needed for local custom DNS servers
+[IMPROVED] (macOS/Windows) Preserve original TTL when using custom DoH
+[IMPROVED] (macOS) Faster connection recovery after network changes
+[FIX] (Windows) Hardened firewall rules to prevent DNS leaks.
+[FIX] (macOS/Linux) Fixed connectivity loss after sleep
+[FIX] General stability improvements
+
+[Download IVPN Client for Windows](https://repo.ivpn.net/windows/bin/IVPN-Client-v3.15.0.exe)  
+SHA256: 5c67b18845c6faa3de5256d7a4fecb3c23f8a8250f71c6d018bddf127780867f  
+
+[Download IVPN Client for macOS (Intel)](https://repo.ivpn.net/macos/bin/IVPN-3.15.0.dmg)  
+SHA256: 8a58fb44002ca1a861928eaa990bac12baa89163b8b139bcc54ef5273ba58c77  
+[Download IVPN Client for macOS (M1)](https://repo.ivpn.net/macos/bin/IVPN-3.15.0-arm64.dmg)  
+SHA256: 72647b650a295b764c0a076732121c7930944e68fa6ae9bc797b7e1c93cb5895  
+
+[Download IVPN Client for Linux (DEB)](https://repo.ivpn.net/stable/pool/ivpn_3.15.0_amd64.deb)  
+SHA256: b8db37c58ff6896d353f5f338eafbe8532a09a0e1afa3be0f438bd9846a21bea  
+[Download IVPN Client for Linux (RPM)](https://repo.ivpn.net/stable/pool/ivpn-3.15.0-1.x86_64.rpm)  
+SHA256: 50f8d6e80109b90a881f47cf4208ef713161d2c3113c3c755a4dc372c48168db  
+
+[Download IVPN Client UI for Linux (DEB)](https://repo.ivpn.net/stable/pool/ivpn-ui_3.15.0_amd64.deb)  
+SHA256: e590376406f0e9ea9633187b30d452facd577afbf6dea40b0465126b3a9fb8d1  
+[Download IVPN Client UI for Linux (RPM)](https://repo.ivpn.net/stable/pool/ivpn-ui-3.15.0-1.x86_64.rpm)  
+SHA256: 0a122ce5c5df3894e74067436f34865a5ede044c5947586acf185822433794d0  
+
+
 ## Version 3.14.34 - 2025-07-21
 
 [NEW] Displaying ISP information for each host  
