@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 [NEW] Support multiple custom DNS servers  
 [IMPROVED] No firewall exceptions needed for local custom DNS servers  
-[IMPROVED] (macOS/Windows) Preserve original TTL when using custom DoH  
+[IMPROVED] (macOS/Linux) Preserve original TTL when using custom DoH  
 [IMPROVED] (macOS) Faster connection recovery after network changes  
 [FIX] (Windows) Hardened firewall rules to prevent DNS leaks  
 [FIX] (macOS/Linux) Fixed connectivity loss after sleep  
