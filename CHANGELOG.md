@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## Version 3.15.0 - 2025-12-04
 
-[NEW] Support multiple custom DNS servers
-[IMPROVED] No firewall exceptions needed for local custom DNS servers
-[IMPROVED] (macOS/Windows) Preserve original TTL when using custom DoH
-[IMPROVED] (macOS) Faster connection recovery after network changes
-[FIX] (Windows) Hardened firewall rules to prevent DNS leaks.
-[FIX] (macOS/Linux) Fixed connectivity loss after sleep
-[FIX] General stability improvements
+[NEW] Support multiple custom DNS servers  
+[IMPROVED] No firewall exceptions needed for local custom DNS servers  
+[IMPROVED] (macOS/Windows) Preserve original TTL when using custom DoH  
+[IMPROVED] (macOS) Faster connection recovery after network changes  
+[FIX] (Windows) Hardened firewall rules to prevent DNS leaks  
+[FIX] (macOS/Linux) Fixed connectivity loss after sleep  
+[FIX] General stability improvements  
 
 [Download IVPN Client for Windows](https://repo.ivpn.net/windows/bin/IVPN-Client-v3.15.0.exe)  
 SHA256: 5c67b18845c6faa3de5256d7a4fecb3c23f8a8250f71c6d018bddf127780867f  
