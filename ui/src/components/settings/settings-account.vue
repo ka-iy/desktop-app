@@ -286,6 +286,12 @@ export default {
       return true;
     },
     IsCanUpgradeToPro: function () {
+      // The upgrade option for legacy accounts ("ivpn*" accounts) is not available anymore.
+      let acc = this.$store.state.account.session.AccountID;
+      if (acc?.startsWith("ivpn")) {
+        return false;
+      }      
+
       return (
         this.IsAccountStateExists &&
         this.$store.state.account.accountStatus.Upgradable

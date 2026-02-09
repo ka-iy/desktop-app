@@ -97,16 +97,28 @@ export default {
   },
   computed: {
     isCanUpgrade: function () {
+      // The upgrade option for legacy accounts is not available anymore.
+      if (this.isLegacyAccount) {
+        return false;
+      }
+
+      // No sense to show upgrade option for "IVPN Plus" accounts, 
+      // because it already includes the maximum number of devices allowed.
+      if (this.CurrentPlan === "IVPN Plus") {
+        return false;
+      }
+
       return this.Upgradable;
     },
+
     isCanForceLogout: function () {
       if (this.accountID == null || this.accountID === "") return false;
       return true;
     },
-    isLegacyAccount: function () {
+    isLegacyAccount: function () {      
       return typeof this.accountID === "string" &&
-        this.accountID.startsWith("ivpn") &&
-        this.accountID.length <= 12
+        this.accountID?.startsWith("ivpn") &&
+        this.accountID?.length <= 12
         ? true
         : false;
     },
