@@ -897,7 +897,13 @@ async function ConnectToDaemon(setConnState, onDaemonExitingCallback) {
 
     log.debug("Connecting to daemon...");
     try {
-      socket.connect(parseInt(portInfo.port, 10), "127.0.0.1");
+      socket.connect({
+        port: Number.parseInt(portInfo.port, 10),
+        host: "127.0.0.1",
+        // Bind the client socket to the loopback interface before connecting to the daemon.
+        // On Windows, this helps classify the connection as loopback at the ALE_BIND_REDIRECT stage.
+        localAddress: "127.0.0.1",
+      });
     } catch (e) {
       log.error("Daemon connection error: ", e);
     }
