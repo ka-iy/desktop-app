@@ -461,7 +461,8 @@ func doEnable() (retErr error) {
 			return fmt.Errorf("failed to add filter 'allow application - dnscrypt-proxy': %w", err)
 		}
 
-		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "", net.ParseIP("127.0.0.1"), net.IPv4(255, 255, 255, 255), isPersistant))
+		// Loopback (localhost) - to allow communication with localhost services)
+		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "", net.ParseIP("127.0.0.1"), net.IPv4(255, 0, 0, 0), isPersistant))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow remote IP': %w", err)
 		}
