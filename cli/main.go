@@ -206,21 +206,21 @@ func main() {
 	}
 }
 
-func RequestParanoidModePassword() (string, error) {
+func RequestParanoidModePassword() (pass string, isPlainText bool, err error) {
 	// request secret from user
 	fmt.Print("EAA is active. Enter EAA password: ")
 
 	data, err := term.ReadPassword(int(syscall.Stdin))
 	fmt.Println("")
 	if err != nil {
-		return "", fmt.Errorf("failed to read EAA password: %s\n", err)
+		return "", true, fmt.Errorf("failed to read EAA password: %s\n", err)
 	}
 	secret := strings.TrimSpace(string(data))
 	if len(secret) <= 0 {
-		return "", fmt.Errorf("EAA password not defined")
+		return "", true, fmt.Errorf("EAA password not defined")
 	}
 
-	return secret, nil
+	return secret, true, nil
 }
 
 func PrintToConsoleFunc(text string) {

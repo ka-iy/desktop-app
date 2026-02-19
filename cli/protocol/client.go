@@ -67,7 +67,7 @@ func (ivpnClientLogger) Error(v ...interface{}) { logger.Error(v...) }
 func CreateClient(
 	port int,
 	secret uint64,
-	paranoidModeSecretRequestFunc func() (string, error),
+	paranoidModeSecretRequestFunc ipc.ParanoidModeSecretRequestFunc,
 	printFunc func(text string)) (*Client, error) {
 
 	ver := version.Version()

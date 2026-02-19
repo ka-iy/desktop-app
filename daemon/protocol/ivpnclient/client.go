@@ -20,6 +20,7 @@ type ClientInfo struct {
 }
 
 type OnMessageEventHandler func(messageName string, messageData string)
+type ParanoidModeSecretRequestFunc func() (secret string, isPlainText bool, err error)
 
 // Client is a main object for communication with IVPN daemon.
 type Client struct {
@@ -29,7 +30,7 @@ type Client struct {
 	_clientInfo ClientInfo
 
 	_paranoidModeSecret            string
-	_paranoidModeSecretRequestFunc func() (string, error)
+	_paranoidModeSecretRequestFunc ParanoidModeSecretRequestFunc
 
 	_conn   *Connection   // connection to a daemon
 	_msgIdx atomic.Uint32 // last used message index, starts with 1
@@ -59,12 +60,12 @@ func NewClientAsRoot(
 		return nil, fmt.Errorf("failed to read daemon connection info: %w", err)
 	}
 	// create function to read paranoid mode secret directly from a file when it is required
-	paranoidModeRequestFunc := func() (string, error) {
+	paranoidModeRequestFunc := func() (string, bool, error) {
 		secret, err := readParanoidModeSecret(paranoidModeSecretFile)
 		if err != nil {
-			return "", fmt.Errorf("failed to read paranoid mode secret: %w", err)
+			return "", false, fmt.Errorf("failed to read paranoid mode secret: %w", err)
 		}
-		return secret, nil
+		return secret, false, nil
 	}
 	// create client
 	return NewClient(port, secret, paranoidModeRequestFunc, logger, responseDefaultTimeout, clientInfo)
@@ -74,7 +75,7 @@ func NewClientAsRoot(
 func NewClient(
 	port int,
 	secret uint64,
-	paranoidModeSecretRequestFunc func() (string, error),
+	paranoidModeSecretRequestFunc ParanoidModeSecretRequestFunc,
 	logger Logger,
 	responseDefaultTimeout time.Duration,
 	clientInfo ClientInfo) (*Client, error) {
@@ -270,12 +271,17 @@ func (c *Client) sendRecv(request IRequestBase, ignoreResponseIndex bool, timeou
 		// Paranoid mode password error
 		if c._paranoidModeSecretRequestFunc != nil {
 			// request user for Password
-			var pass = ""
-			pass, err = c._paranoidModeSecretRequestFunc()
+			pass := ""
+			isPlainText := false
+			pass, isPlainText, err = c._paranoidModeSecretRequestFunc()
 			if err != nil {
 				return err
 			}
-			c.SetParanoidModeSecretPlainText(pass)
+			if isPlainText {
+				c.SetParanoidModeSecretPlainText(pass)
+			} else {
+				c.SetParanoidModeSecret(pass)
+			}
 
 			err = doJob()
 		}
