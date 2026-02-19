@@ -17,10 +17,11 @@ const (
 )
 
 type Connection struct {
-	_mu           sync.RWMutex
-	_conn         net.Conn
-	_recvMsgsChan chan string // channel for received json messages from a daemon
-	_logger       Logger
+	_mu               sync.RWMutex
+	_conn             net.Conn
+	_recvMsgsChan     chan string // channel for received json messages from a daemon
+	_logger           Logger
+	_disconnectedChan chan struct{} // channel to signal that connection is closed
 }
 
 func NewConnection(logger Logger) (*Connection, error) {
@@ -28,8 +29,9 @@ func NewConnection(logger Logger) (*Connection, error) {
 		logger = noopLogger{}
 	}
 	return &Connection{
-		_logger:       logger,
-		_recvMsgsChan: make(chan string, 16),
+		_logger:           logger,
+		_recvMsgsChan:     make(chan string, 16),
+		_disconnectedChan: make(chan struct{}),
 	}, nil
 }
 
@@ -70,6 +72,12 @@ func (c *Connection) Disconnect() {
 	}
 }
 
+// Disconnected returns channel to signal that connection is closed
+func (c *Connection) Disconnected() <-chan struct{} {
+	return c._disconnectedChan
+}
+
+// ReceivedMessages returns channel with received messages from a daemon
 func (c *Connection) ReceivedMessages() <-chan string {
 	return c._recvMsgsChan
 }
@@ -112,6 +120,7 @@ func (c *Connection) receiverRoutine() {
 		c._conn.Close()
 		c._conn = nil
 		close(c._recvMsgsChan)
+		close(c._disconnectedChan)
 
 		c._mu.Unlock()
 

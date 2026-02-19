@@ -131,6 +131,17 @@ func (c *Client) Disconnect() {
 	}
 }
 
+// WaitDisconnected waits until connection to a daemon is closed.
+func (c *Client) WaitDisconnected() {
+	c._locker.RLock()
+	conn := c._conn
+	c._locker.RUnlock()
+
+	if conn != nil {
+		<-conn.Disconnected()
+	}
+}
+
 // Connect establishes connection to a daemon and starts routine to receive messages from a daemon.
 // Note: Hello request must be first to start communication with a daemon
 func (c *Client) Connect() error {
