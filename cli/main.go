@@ -160,10 +160,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	proto := protocol.CreateClient(port, secret)
+	proto, err := protocol.CreateClient(
+		port,
+		secret,
+		RequestParanoidModePassword,
+		PrintToConsoleFunc)
 
-	proto.SetParanoidModeSecretRequestFunc(RequestParanoidModePassword)
-	proto.SetPrintFunc(PrintToConsoleFunc)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+		printServStartInstructions()
+		os.Exit(1)
+	}
 
 	if err := proto.Connect(); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to connect to service : %s\n", err)
@@ -199,7 +206,7 @@ func main() {
 	}
 }
 
-func RequestParanoidModePassword(c *protocol.Client) (string, error) {
+func RequestParanoidModePassword() (string, error) {
 	// request secret from user
 	fmt.Print("EAA is active. Enter EAA password: ")
 

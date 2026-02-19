@@ -27,6 +27,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 )
 
@@ -50,7 +51,7 @@ func (p *Protocol) IsClientConnected(checkOnlyUiClients bool) bool {
 	for _, val := range p._connections {
 		if val.IsAuthenticated {
 			if checkOnlyUiClients {
-				if val.Type == types.ClientUi {
+				if val.Type == ivpnclient.ClientUi {
 					return true
 				}
 			} else {
@@ -70,7 +71,7 @@ func (p *Protocol) IsCanDoBackgroundAction() bool {
 	return true
 }
 
-func (p *Protocol) clientConnected(c net.Conn, cType types.ClientTypeEnum) {
+func (p *Protocol) clientConnected(c net.Conn, cType ivpnclient.ClientTypeEnum) {
 	p._connectionsMutex.Lock()
 	defer p._connectionsMutex.Unlock()
 	p._connections[c] = connectionInfo{Type: cType}
@@ -143,7 +144,7 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 
 	if len(p._lastConnectionErrorToNotifyClient) > 0 {
 		log.Info("Sending delayed error to client: ", p._lastConnectionErrorToNotifyClient)
-		delayedErr := types.ErrorRespDelayed{}
+		delayedErr := ivpnclient.ErrorRespDelayed{}
 		delayedErr.ErrorMessage = p._lastConnectionErrorToNotifyClient
 		p.sendResponse(c, &delayedErr, 0)
 	}

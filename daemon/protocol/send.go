@@ -28,13 +28,14 @@ import (
 	"net"
 
 	"github.com/ivpn/desktop-app/daemon/helpers"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 )
 
 type ICommandBase interface {
-	Init(name string, idx int)
+	Init(name string, idx uint32)
 	Name() string
-	Index() int
+	Index() uint32
 	LogExtraInfo() string
 }
 
@@ -44,7 +45,7 @@ type IResponseBase interface {
 
 // Send initializes and sends command to a client
 // Note: this function modifies cmd object by adding command name and index
-func Send(conn net.Conn, cmd ICommandBase, idx int) error {
+func Send(conn net.Conn, cmd ICommandBase, idx uint32) error {
 	if conn == nil {
 		return fmt.Errorf("connection is nil")
 	}
@@ -71,17 +72,17 @@ func (p *Protocol) notifyClients(cmd ICommandBase) {
 	}
 }
 
-func (p *Protocol) sendError(conn net.Conn, errorText string, cmdIdx int) {
+func (p *Protocol) sendError(conn net.Conn, errorText string, cmdIdx uint32) {
 	log.Error(errorText)
-	p.sendResponse(conn, &types.ErrorResp{ErrorMessage: errorText}, cmdIdx)
+	p.sendResponse(conn, &ivpnclient.ErrorResp{ErrorMessage: errorText}, cmdIdx)
 }
 
 func (p *Protocol) sendErrorResponse(conn net.Conn, request types.RequestBase, err error) {
 	log.Error(fmt.Sprintf("%sError processing request '%s': %s", p.connLogID(conn), request.Command, err))
-	p.sendResponse(conn, &types.ErrorResp{ErrorMessage: helpers.CapitalizeFirstLetter(err.Error())}, request.Idx)
+	p.sendResponse(conn, &ivpnclient.ErrorResp{ErrorMessage: helpers.CapitalizeFirstLetter(err.Error())}, request.Idx)
 }
 
-func (p *Protocol) sendResponse(conn net.Conn, cmd ICommandBase, idx int) (retErr error) {
+func (p *Protocol) sendResponse(conn net.Conn, cmd ICommandBase, idx uint32) (retErr error) {
 	if err := Send(conn, cmd, idx); err != nil {
 		return fmt.Errorf("%sfailed to send command: %w", p.connLogID(conn), err)
 	}

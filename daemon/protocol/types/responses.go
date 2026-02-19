@@ -29,6 +29,7 @@ import (
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
 	"github.com/ivpn/desktop-app/daemon/logger"
 	"github.com/ivpn/desktop-app/daemon/obfsproxy"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	service_types "github.com/ivpn/desktop-app/daemon/service/types"
@@ -42,33 +43,9 @@ func init() {
 	log = logger.NewLogger("prttyp")
 }
 
-type ErrorType int
-
-const (
-	ErrorUnknown                   ErrorType = iota
-	ErrorParanoidModePasswordError ErrorType = iota
-)
-
-// ErrorResp response of error
-type ErrorResp struct {
-	CommandBase
-	ErrorMessage string
-	ErrorTitle   string
-	ErrorType    ErrorType
-}
-
-func (e ErrorResp) Error() string {
-	return e.ErrorMessage
-}
-
-// ErrorRespDelayed - error info which had happened in the past
-type ErrorRespDelayed struct {
-	ErrorResp
-}
-
 // EmptyResp empty response on request
 type EmptyResp struct {
-	CommandBase
+	ivpnclient.EmptyResp
 }
 
 // ServiceExitingResp service is going to exit response
@@ -367,6 +344,6 @@ func (r APIResponse) LogExtraInfo() string {
 }
 
 type CheckAccessiblePortsResponse struct {
-	RequestBase
+	CommandBase
 	Ports []api_types.PortInfo
 }

@@ -39,6 +39,7 @@ import (
 	"github.com/ivpn/desktop-app/daemon/logger"
 	"github.com/ivpn/desktop-app/daemon/oshelpers"
 	"github.com/ivpn/desktop-app/daemon/protocol/eaa"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/platform"
@@ -58,7 +59,7 @@ func init() {
 type Service interface {
 	UnInitialise() error
 
-	OnAuthenticatedClient(t types.ClientTypeEnum)
+	OnAuthenticatedClient(t ivpnclient.ClientTypeEnum)
 
 	// GetDisabledFunctions returns info about functions which are disabled
 	// Some functionality can be not accessible
@@ -155,8 +156,8 @@ func CreateProtocol() (*Protocol, error) {
 }
 
 type connectionInfo struct {
-	Type            types.ClientTypeEnum // UI or CLI
-	IsAuthenticated bool                 // true when connection fully authenticated (secret is OK and EAA check is passed)
+	Type            ivpnclient.ClientTypeEnum // UI or CLI
+	IsAuthenticated bool                      // true when connection fully authenticated (secret is OK and EAA check is passed)
 }
 
 // Protocol - TCP interface to communicate with IVPN application
@@ -301,7 +302,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 		if p._service.IsPaused() &&
 			p.clientsConnectedCount() == 0 &&
 			disconnectedClientInfo != nil &&
-			disconnectedClientInfo.Type == types.ClientUi &&
+			disconnectedClientInfo.Type == ivpnclient.ClientUi &&
 			disconnectedClientInfo.IsAuthenticated {
 			log.Info("Connection is in paused state and no active clients available. Disconnecting ...")
 			if err := p._service.Disconnect(); err != nil {
@@ -340,7 +341,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 				return
 			}
 			// parsing 'Hello' request
-			var hello types.Hello
+			var hello ivpnclient.Hello
 			if err := json.Unmarshal(messageData, &hello); err != nil {
 				p.sendErrorResponse(conn, cmd, fmt.Errorf("connection authentication error: %w", err))
 				return
@@ -414,7 +415,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		return false
 	}
 
-	sendState := func(reqIdx int, isOnlyIfConnected bool) {
+	sendState := func(reqIdx uint32, isOnlyIfConnected bool) {
 		vpnState := p._lastVPNState
 		if vpnState.State == vpn.CONNECTED {
 			p.sendResponse(conn, p.createConnectedResponse(vpnState), reqIdx)
@@ -435,8 +436,8 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			isOK, err := p._eaa.CheckSecret(reqCmd.ProtocolSecret)
 			if !isOK {
 				// ParanoidMode: wrong password
-				errorResp := types.ErrorResp{
-					ErrorType:    types.ErrorParanoidModePasswordError,
+				errorResp := ivpnclient.ErrorResp{
+					ErrorType:    ivpnclient.ErrorParanoidModePasswordError,
 					ErrorTitle:   "Enhanced App Authentication",
 					ErrorMessage: "The password is incorrect. Please try again."}
 
@@ -470,7 +471,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx)
 
 	case "Hello":
-		var req types.Hello
+		var req ivpnclient.Hello
 
 		if err := json.Unmarshal(messageData, &req); err != nil {
 			p.sendErrorResponse(conn, reqCmd, err)

@@ -27,34 +27,18 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 )
 
 // CommandBase is a base object for communication with daemon.
 // Contains fields required for all requests\responses.
 type CommandBase struct {
-	// this field represents command type
-	Command string
-	// Uses for separate request\response sessions.
-	// Response messages must have same Index as request
-	Idx int
-}
-
-func (cb *CommandBase) Init(name string, idx int) {
-	cb.Command = name
-	cb.Idx = idx
-}
-func (cb *CommandBase) Name() string {
-	return cb.Command
-}
-func (cb *CommandBase) Index() int {
-	return cb.Idx
-}
-func (cb *CommandBase) LogExtraInfo() string {
-	return ""
+	ivpnclient.CommandBase
 }
 
 type ResponseBase struct {
-	CommandBase
+	ivpnclient.CommandBase
 	Error string
 }
 
@@ -64,8 +48,7 @@ func (rb *ResponseBase) GetError() string {
 
 // RequestBase contains fields which are common for requests to a daemon
 type RequestBase struct {
-	CommandBase
-	ProtocolSecret string
+	ivpnclient.RequestBase
 }
 
 type ServicePreference string

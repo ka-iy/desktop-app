@@ -26,19 +26,23 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ivpn/desktop-app/cli/helpers"
 	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
 	"github.com/ivpn/desktop-app/daemon/logger"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
+	ipc "github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
+	"github.com/ivpn/desktop-app/daemon/service/platform"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	service_types "github.com/ivpn/desktop-app/daemon/service/types"
 	"github.com/ivpn/desktop-app/daemon/version"
@@ -48,59 +52,84 @@ import (
 
 // Client for IVPN daemon
 type Client struct {
-	_port   int
-	_secret uint64
-	_conn   net.Conn
-
-	_requestIdx int
-
-	_defaultTimeout  time.Duration
-	_receivers       map[*receiverChannel]struct{}
-	_receiversLocker sync.Mutex
-
+	_locker        sync.RWMutex
+	_client        *ipc.Client
 	_helloResponse types.HelloResp
-
-	_paranoidModeSecret            string
-	_paranoidModeSecretRequestFunc func(*Client) (string, error)
-
-	_printFunc func(string)
+	_printFunc     func(string)
 }
 
-// ResponseTimeout error
-type ResponseTimeout struct {
-}
+type ivpnClientLogger struct{}
 
-func (e ResponseTimeout) Error() string {
-	return "response timeout"
-}
+func (ivpnClientLogger) Info(v ...interface{})  { logger.Info(v...) }
+func (ivpnClientLogger) Error(v ...interface{}) { logger.Error(v...) }
 
-// CreateClient initialising new client for IVPN daemon
-func CreateClient(port int, secret uint64) *Client {
-	return &Client{
-		_port:           port,
-		_secret:         secret,
-		_defaultTimeout: time.Second * 60 * 3,
-		_receivers:      make(map[*receiverChannel]struct{})}
+// CreateClient initializing new client for IVPN daemon
+func CreateClient(
+	port int,
+	secret uint64,
+	paranoidModeSecretRequestFunc func() (string, error),
+	printFunc func(text string)) (*Client, error) {
+
+	ver := version.Version()
+	if ver == "" {
+		ver = "unknown"
+	}
+
+	ivpnClient, err := ivpnclient.NewClient(
+		port,
+		secret,
+		paranoidModeSecretRequestFunc,
+		ivpnClientLogger{},
+		time.Second*60*3,
+		ipc.ClientInfo{
+			Type:    ipc.ClientCli,
+			Name:    "CLI",
+			Version: ver,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create IVPN client: %w", err)
+	}
+
+	return &Client{_client: ivpnClient, _printFunc: printFunc}, nil
 }
 
 // Connect is connecting to daemon
 func (c *Client) Connect() (err error) {
-	if c._conn != nil {
-		return fmt.Errorf("already connected")
-	}
-
 	logger.Info("Connecting...")
-
-	c._conn, err = net.Dial("tcp", fmt.Sprintf(":%d", c._port))
-	if err != nil {
+	if err := c._client.Connect(); err != nil {
 		return fmt.Errorf("failed to connect to IVPN daemon (does IVPN daemon/service running?): %w", err)
 	}
-
 	logger.Info("Connected")
 
-	// start receiver
-	go c.receiverRoutine()
+	// Set handler for 'HelloResp' message to update latest HelloResp
+	c._client.SetMessageEventHandler("HelloResp", func(messageName string, messageData string) {
+		var hr types.HelloResp
+		if err := json.Unmarshal([]byte(messageData), &hr); err == nil {
+			c._locker.Lock()
+			c._helloResponse = hr
+			c._locker.Unlock()
+			// If we are running in privileged environment AND if daemon informed us about secret file - read it
+			// It gives us possibility to bypass EAA (if enabled)
+			if hr.ParanoidMode.IsEnabled && helpers.CheckIsAdmin() {
+				if secret, err := os.ReadFile(platform.ParanoidModeSecretFile()); err == nil {
+					c._client.SetParanoidModeSecret(string(secret))
+				}
+			}
+		}
+	})
 
+	// Subscribe for 'ErrorRespDelayed' messages to be able to print delayed error messages from a daemon (if any)
+	if c._printFunc != nil {
+		messageName := ipc.GetTypeName(ipc.ErrorRespDelayed{})
+		c._client.SetMessageEventHandler(messageName, func(messageName string, messageData string) {
+			var errDelayed ipc.ErrorRespDelayed
+			if err := json.Unmarshal([]byte(messageData), &errDelayed); err == nil {
+				c._printFunc("IVPN daemon notifies of an error that occurred earlier: " + errDelayed.ErrorMessage + "\n")
+			}
+		})
+	}
+
+	// Send initial Hello message (required to start communication)
 	if _, err := c.SendHello(); err != nil {
 		return err
 	}
@@ -116,19 +145,11 @@ func paranoidModeSecretHash(secret string) string {
 	return base64.StdEncoding.EncodeToString(hash)
 }
 
-func (c *Client) InitSetParanoidModeSecret(secret string) {
-	c._paranoidModeSecret = paranoidModeSecretHash(secret)
+func (c *Client) InitSetParanoidModeSecret(pass string) {
+	c._client.SetParanoidModeSecretPlainText(pass)
 }
 func (c *Client) InitSetParanoidModeSecretHash(secretHash string) {
-	c._paranoidModeSecret = secretHash
-}
-
-func (c *Client) SetParanoidModeSecretRequestFunc(f func(*Client) (string, error)) {
-	c._paranoidModeSecretRequestFunc = f
-}
-
-func (c *Client) SetPrintFunc(f func(string)) {
-	c._printFunc = f
+	c._client.SetParanoidModeSecret(secretHash)
 }
 
 // SendHello - send initial message and get current status
@@ -137,45 +158,35 @@ func (c *Client) SendHello() (helloResponse types.HelloResp, err error) {
 }
 
 func (c *Client) SendHelloEx(isSendResponseToAllClients bool) (helloResponse types.HelloResp, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return helloResponse, err
-	}
+	helloReq := c._client.InitHelloRequest()
+	helloReq.SendResponseToAllClients = isSendResponseToAllClients
 
-	ver := version.Version()
-	if ver == "" {
-		ver = "unknown"
-	}
-	helloReq := types.Hello{
-		Secret:                   c._secret,
-		ClientType:               types.ClientCli,
-		GetStatus:                true,
-		Version:                  ver + ": CLI",
-		SendResponseToAllClients: isSendResponseToAllClients,
-	}
-
-	if err := c.sendRecvTimeOut(&helloReq, &c._helloResponse, time.Second*7); err != nil {
-		if _, ok := errors.Unwrap(err).(ResponseTimeout); ok {
+	if err := c._client.SendRecvTimeOut(&helloReq, &helloResponse, time.Second*7); err != nil {
+		if _, ok := errors.Unwrap(err).(ipc.ResponseTimeout); ok {
 			return helloResponse, fmt.Errorf("Failed to send 'Hello' request: %w", err)
 		}
 		return helloResponse, fmt.Errorf("Failed to send 'Hello' request: %w", err)
 	}
+
+	c._locker.Lock()
+	defer c._locker.Unlock()
+	c._helloResponse = helloResponse
+
 	return c._helloResponse, nil
 }
 
 // GetHelloResponse returns initialization response from daemon
 func (c *Client) GetHelloResponse() types.HelloResp {
+	c._locker.RLock()
+	defer c._locker.RUnlock()
 	return c._helloResponse
 }
 
 // SessionNew creates new session
 func (c *Client) SessionNew(accountID string, forceLogin bool, the2FA string) (resp types.SessionNewResp, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return resp, err
-	}
-
 	req := types.SessionNew{AccountID: accountID, ForceLogin: forceLogin, Confirmation2FA: the2FA}
 
-	if err := c.sendRecv(&req, &resp); err != nil {
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return resp, err
 	}
 
@@ -188,67 +199,45 @@ func (c *Client) SessionNew(accountID string, forceLogin bool, the2FA string) (r
 
 // SessionDelete remove session
 func (c *Client) SessionDelete(needToDisableFirewall, resetAppSettingsToDefaults, isCanDeleteSessionLocally bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.SessionDelete{
 		NeedToDisableFirewall:     needToDisableFirewall,
 		NeedToResetSettings:       resetAppSettingsToDefaults,
 		IsCanDeleteSessionLocally: isCanDeleteSessionLocally}
 
-	var resp types.EmptyResp
-
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // SessionStatus get session status
 func (c *Client) SessionStatus() (ret types.SessionStatusResp, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return ret, err
-	}
-
 	req := types.SessionStatus{}
 	var resp types.SessionStatusResp
-
-	if err := c.sendRecv(&req, &resp); err != nil {
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return ret, err
 	}
-
 	return resp, nil
 }
 
 // SetPreferences sends config parameter to daemon
 // TODO: avoid using keys as a strings
 func (c *Client) SetPreferences(key, value string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.SetPreference{Key: key, Value: value}
-
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // FirewallSet change firewall state
 func (c *Client) FirewallSet(isOn bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	// changing killswitch state
 	req := types.KillSwitchSetEnabled{IsEnabled: isOn}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
 
@@ -267,14 +256,10 @@ func (c *Client) FirewallSet(isOn bool) error {
 
 // FirewallSet change firewall Persistent state
 func (c *Client) FirewallPersistentSet(isOn bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	// changing killswitch Persistent state
 	req := types.KillSwitchSetIsPersistent{IsPersistent: isOn}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
 
@@ -293,95 +278,65 @@ func (c *Client) FirewallPersistentSet(isOn bool) error {
 
 // FirewallAllowLan set configuration 'allow LAN'
 func (c *Client) FirewallAllowLan(allow bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
-	// changing killswitch configuration
+	// changing kill-switch configuration
 	req := types.KillSwitchSetAllowLAN{AllowLAN: allow}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // FirewallAllowLan set configuration 'firewall exceptions' (comma separated list of IP addresses/masks in format: x.x.x.x[/xx])
 func (c *Client) FirewallSetUserExceptions(exceptions string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
-	// changing killswitch configuration
+	// changing kill-switch configuration
 	req := types.KillSwitchSetUserExceptions{UserExceptions: exceptions, FailOnParsingError: true}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // FirewallAllowApiServers set configuration 'Allow access to IVPN servers when Firewall is enabled'
 func (c *Client) FirewallAllowApiServers(allow bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
-	// changing killswitch configuration
+	// changing kill-switch configuration
 	req := types.KillSwitchSetAllowApiServers{IsAllowApiServers: allow}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // FirewallAllowLanMulticast set configuration 'allow LAN multicast'
 func (c *Client) FirewallAllowLanMulticast(allow bool) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
-	// changing killswitch configuration
+	// changing kill-switch configuration
 	req := types.KillSwitchSetAllowLANMulticast{AllowLANMulticast: allow}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // FirewallStatus get firewall state
 func (c *Client) FirewallStatus() (state types.KillSwitchStatusResp, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return state, err
-	}
-
 	// requesting status
 	statReq := types.KillSwitchGetStatus{}
-	if err := c.sendRecv(&statReq, &state); err != nil {
+	if err := c._client.SendRecv(&statReq, &state); err != nil {
 		return state, err
 	}
-
 	return state, nil
 }
 
 // GetSplitTunnelStatus requests the Split-Tunnelling configuration
 func (c *Client) GetSplitTunnelStatus() (cfg types.SplitTunnelStatus, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return cfg, err
-	}
-
 	// requesting status
 	req := types.SplitTunnelGetStatus{}
-	if err := c.sendRecv(&req, &cfg); err != nil {
+	if err := c._client.SendRecv(&req, &cfg); err != nil {
 		return cfg, err
 	}
-
 	return cfg, nil
 }
 
@@ -394,24 +349,15 @@ func (c *Client) GetSplitTunnelStatus() (cfg types.SplitTunnelStatus, err error)
 //	isAllowWhenNoVpn bool - (only for Inverse Split Tunnel) Allow connectivity for Split Tunnel apps when VPN is disabled
 //	reset      bool - reset ST config and disable ST (if enabled - all the rest paremeters are ignored)
 func (c *Client) SetSplitTunnelConfig(isEnable, isInversed, isAnyDns, isAllowWhenNoVpn, reset bool) (err error) {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.SplitTunnelSetConfig{IsEnabled: isEnable, IsInversed: isInversed, IsAnyDns: isAnyDns, IsAllowWhenNoVpn: isAllowWhenNoVpn, Reset: reset}
-	resp := types.EmptyResp{}
-	if err := c.sendRecv(&req, &resp); err != nil {
+	resp := ipc.EmptyResp{}
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand bool, retErr error) {
-	if err := c.ensureConnected(); err != nil {
-		return false, err
-	}
-
 	// Description of Split Tunneling commands sequence to run the application:
 	//	[client]					          [daemon]
 	//	SplitTunnelAddApp		    ->
@@ -422,14 +368,14 @@ func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand b
 	//  SplitTunnelAddedPidInfo	->
 	// 							            <-	types.EmptyResp (success)
 
-	var respEmpty types.EmptyResp
+	var respEmpty ipc.EmptyResp
 	var respAppCmdResp types.SplitTunnelAddAppCmdResp
 	if val, ok := os.LookupEnv("IVPN_STARTED_BY_PARENT"); !ok || val != "IVPN_UI" {
 		// If the CLI was started by IVPN UI - skip sending 'SplitTunnelAddApp'
 		// It is already done by IVPN UI
 
 		req := types.SplitTunnelAddApp{Exec: execCmd}
-		_, _, err := c.sendRecvAnyEx(&req, false, &respEmpty, &respAppCmdResp)
+		err := c._client.SendRecvAnyEx(&req, false, &respEmpty, &respAppCmdResp)
 		if err != nil {
 			return false, err
 		}
@@ -469,7 +415,7 @@ func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand b
 
 	// register new PID and inform that command must be executed
 	reqAddedePid := types.SplitTunnelAddedPidInfo{Pid: os.Getpid(), Exec: execCmd, CmdToExecute: strings.Join(os.Args[:], " ")}
-	if err := c.sendRecv(&reqAddedePid, &respEmpty); err != nil {
+	if err := c._client.SendRecv(&reqAddedePid, &respEmpty); err != nil {
 		return false, err
 	}
 
@@ -477,10 +423,6 @@ func (c *Client) SplitTunnelAddApp(execCmd string) (isRequiredToExecuteCommand b
 }
 
 func (c *Client) SplitTunnelRemoveApp(cmdOrPid string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	pid := 0
 	cmd := ""
 
@@ -491,45 +433,33 @@ func (c *Client) SplitTunnelRemoveApp(cmdOrPid string) error {
 	}
 
 	req := types.SplitTunnelRemoveApp{Exec: cmd, Pid: pid}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // GetServers gets servers list
 func (c *Client) GetServers() (apitypes.ServersInfoResponse, error) {
-	if err := c.ensureConnected(); err != nil {
-		return apitypes.ServersInfoResponse{}, err
-	}
-
 	req := types.GetServers{}
 	var resp types.ServerListResp
-
-	if err := c.sendRecv(&req, &resp); err != nil {
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return resp.VpnServers, err
 	}
-
 	return resp.VpnServers, nil
 }
 
 // GetServersForceUpdate gets servers list (skip cache; load data from backend)
 func (c *Client) GetServersForceUpdate() (apitypes.ServersInfoResponse, error) {
-	if err := c.ensureConnected(); err != nil {
-		return apitypes.ServersInfoResponse{}, err
-	}
-
 	req := types.GetServers{
 		RequestServersUpdate: true,
 	}
 	var resp types.ServerListResp
 
-	if err := c.sendRecv(&req, &resp); err != nil {
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return resp.VpnServers, err
 	}
-
 	return resp.VpnServers, nil
 }
 
@@ -539,13 +469,9 @@ func (c *Client) GetVPNState() (vpn.State, types.ConnectedResp, error) {
 	respDisconnected := types.DisconnectedResp{}
 	respState := types.VpnStateResp{}
 
-	if err := c.ensureConnected(); err != nil {
-		return vpn.DISCONNECTED, respConnected, err
-	}
-
 	req := types.GetVPNState{}
 
-	_, _, err := c.sendRecvAny(&req, &respConnected, &respDisconnected, &respState)
+	err := c._client.SendRecvAny(&req, &respConnected, &respDisconnected, &respState)
 	if err != nil {
 		return vpn.DISCONNECTED, respConnected, err
 	}
@@ -567,15 +493,11 @@ func (c *Client) GetVPNState() (vpn.State, types.ConnectedResp, error) {
 
 // DisconnectVPN disconnect active VPN connection
 func (c *Client) DisconnectVPN() error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.Disconnect{}
-	respEmpty := types.EmptyResp{}
+	respEmpty := ipc.EmptyResp{}
 	respDisconnected := types.DisconnectedResp{}
 
-	_, _, err := c.sendRecvAny(&req, &respDisconnected, &respEmpty)
+	err := c._client.SendRecvAny(&req, &respDisconnected, &respEmpty)
 	if err != nil {
 		return err
 	}
@@ -583,7 +505,6 @@ func (c *Client) DisconnectVPN() error {
 	if len(respDisconnected.Command) == 0 && len(respEmpty.Command) == 0 {
 		return fmt.Errorf("disconnect request failed (not expected return type)")
 	}
-
 	return nil
 }
 
@@ -592,11 +513,7 @@ func (c *Client) ConnectVPN(req types.Connect) (types.ConnectedResp, error) {
 	respConnected := types.ConnectedResp{}
 	respDisconnected := types.DisconnectedResp{}
 
-	if err := c.ensureConnected(); err != nil {
-		return respConnected, err
-	}
-
-	_, _, err := c.sendRecvAny(&req, &respConnected, &respDisconnected)
+	err := c._client.SendRecvAny(&req, &respConnected, &respDisconnected)
 	if err != nil {
 		return respConnected, err
 	}
@@ -614,49 +531,35 @@ func (c *Client) ConnectVPN(req types.Connect) (types.ConnectedResp, error) {
 
 // WGKeysGenerate regenerate WG keys
 func (c *Client) WGKeysGenerate() error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.WireGuardGenerateNewKeys{}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // WGKeysRotationInterval changes WG keys rotation interval
 func (c *Client) WGKeysRotationInterval(uinxTimeInterval int64) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.WireGuardSetKeysRotationInterval{Interval: uinxTimeInterval}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 func (c *Client) Pause(durationSec uint32) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	if durationSec > 0 {
 		req := types.PauseConnection{Duration: durationSec}
 		var resp types.ConnectedResp
-		if err := c.sendRecv(&req, &resp); err != nil {
+		if err := c._client.SendRecv(&req, &resp); err != nil {
 			return err
 		}
 	} else {
 		req := types.ResumeConnection{}
-		var resp types.EmptyResp
-		if err := c.sendRecv(&req, &resp); err != nil {
+		var resp ipc.EmptyResp
+		if err := c._client.SendRecv(&req, &resp); err != nil {
 			return err
 		}
 	}
@@ -665,10 +568,6 @@ func (c *Client) Pause(durationSec uint32) error {
 
 // PingServers
 func (c *Client) PingServers(vpnTypePrioritized *vpn.Type) (pingResults []types.PingResultType, err error) {
-	if err := c.ensureConnected(); err != nil {
-		return pingResults, err
-	}
-
 	vpnTypePrioritization := false
 	var vpnType vpn.Type
 	if vpnTypePrioritized != nil {
@@ -684,51 +583,37 @@ func (c *Client) PingServers(vpnTypePrioritized *vpn.Type) (pingResults []types.
 		VpnTypePrioritization: vpnTypePrioritization,
 	}
 	var resp types.PingServersResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return pingResults, err
 	}
-
 	return resp.PingResults, nil
 }
 
 // SetManualDNS - sets manual DNS for current VPN connection
 func (c *Client) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.SetAlternateDns{Dns: dnsCfg, AntiTracker: antiTracker}
-	var resp types.EmptyResp
-	if err := c.sendRecv(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // SetParanoidModePassword - set password for ParanoidMode (empty string -> disable ParanoidMode)
 func (c *Client) SetParanoidModePassword(secret string) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.ParanoidModeSetPasswordReq{NewSecret: paranoidModeSecretHash(secret)}
 	var resp types.HelloResp
 	// Waiting for HelloResp (ignoring command index) or for ErrorResp (not ignoring command index)
-	if _, _, err := c.sendRecvAny(&req, &resp); err != nil {
+	if err := c._client.SendRecvAny(&req, &resp); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c *Client) SetUserPreferences(upref preferences.UserPreferences) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.SetUserPreferences{UserPrefs: upref}
 	var resp types.SettingsResp
-	if _, _, err := c.sendRecvAny(&req, &resp); err != nil {
+	if err := c._client.SendRecvAny(&req, &resp); err != nil {
 		return err
 	}
 	return nil
@@ -736,48 +621,32 @@ func (c *Client) SetUserPreferences(upref preferences.UserPreferences) error {
 
 func (c *Client) GetWiFiCurrentNetwork() (types.WiFiCurrentNetworkResp, error) {
 	var resp types.WiFiCurrentNetworkResp
-	if err := c.ensureConnected(); err != nil {
-		return resp, err
-	}
-
 	req := types.WiFiCurrentNetwork{}
-	if _, _, err := c.sendRecvAny(&req, &resp); err != nil {
+	if err := c._client.SendRecvAny(&req, &resp); err != nil {
 		return resp, err
 	}
 	return resp, nil
 }
 
 func (c *Client) SetWiFiSettings(params preferences.WiFiParams) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
 	req := types.WiFiSettings{Params: params}
-	var resp types.EmptyResp
-	if _, _, err := c.sendRecvAny(&req, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c *Client) SetDefConnectionParams(params types.ConnectSettings) error {
-	if err := c.ensureConnected(); err != nil {
-		return err
-	}
-
-	var resp types.EmptyResp
-	if _, _, err := c.sendRecvAny(&params, &resp); err != nil {
+	var resp ipc.EmptyResp
+	if err := c._client.SendRecv(&params, &resp); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (c *Client) GetDefConnectionParams() (types.ConnectSettings, error) {
-	if err := c.ensureConnected(); err != nil {
-		return types.ConnectSettings{}, err
-	}
-
 	var resp types.ConnectSettings
-	_, _, err := c.sendRecvAny(&types.ConnectSettingsGet{}, &resp)
+	err := c._client.SendRecvAny(&types.ConnectSettingsGet{}, &resp)
 	return resp, err
 }
