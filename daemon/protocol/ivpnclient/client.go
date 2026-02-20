@@ -25,7 +25,6 @@ type ParanoidModeSecretRequestFunc func() (secret string, isPlainText bool, err 
 // Client is a main object for communication with IVPN daemon.
 type Client struct {
 	_locker     sync.RWMutex
-	_port       int
 	_secret     uint64
 	_clientInfo ClientInfo
 
@@ -48,33 +47,30 @@ type Client struct {
 // NewClientAsRoot creates a new client for communication with IVPN daemon.
 // Note: It is required to have root privileges to be able to read paranoid mode secret from a file.
 func NewClientAsRoot(
-	portInfoFile string,
-	paranoidModeSecretFile string,
 	logger Logger,
 	responseDefaultTimeout time.Duration,
 	clientInfo ClientInfo) (*Client, error) {
 
-	// read connection info to be able to connect to a daemon
-	port, secret, err := readDaemonPort(portInfoFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read daemon connection info: %w", err)
-	}
 	// create function to read paranoid mode secret directly from a file when it is required
 	paranoidModeRequestFunc := func() (string, bool, error) {
+		// read actual paranoid mode secret
+		_, paranoidModeSecretFile, err := getConnectionFiles()
+		if err != nil {
+			return "", false, fmt.Errorf("failed to get paranoid mode file info: %w", err)
+		}
 		secret, err := readParanoidModeSecret(paranoidModeSecretFile)
 		if err != nil {
 			return "", false, fmt.Errorf("failed to read paranoid mode secret: %w", err)
 		}
 		return secret, false, nil
 	}
+
 	// create client
-	return NewClient(port, secret, paranoidModeRequestFunc, logger, responseDefaultTimeout, clientInfo)
+	return NewClient(paranoidModeRequestFunc, logger, responseDefaultTimeout, clientInfo)
 }
 
 // NewClient creates a new client for communication with IVPN daemon.
 func NewClient(
-	port int,
-	secret uint64,
 	paranoidModeSecretRequestFunc ParanoidModeSecretRequestFunc,
 	logger Logger,
 	responseDefaultTimeout time.Duration,
@@ -94,8 +90,6 @@ func NewClient(
 
 	// create client
 	return &Client{
-		_port:                          port,
-		_secret:                        secret,
 		_logger:                        logger,
 		_paranoidModeSecretRequestFunc: paranoidModeSecretRequestFunc,
 		_clientInfo:                    clientInfo,
@@ -127,7 +121,6 @@ func (c *Client) Disconnect() {
 
 	if c._conn != nil {
 		c._conn.Disconnect()
-		c._conn = nil
 	}
 }
 
@@ -164,8 +157,28 @@ func (c *Client) Connect() error {
 		return err
 	}
 
+	// get connection file location
+	portFile, _, err := getConnectionFiles()
+	if err != nil {
+		return fmt.Errorf("failed to get connection file info: %w", err)
+	}
+	// read connection info to be able to connect to a daemon
+	var (
+		port   int
+		secret uint64
+	)
+
+	port, secret, err = readDaemonPort(portFile)
+	if err != nil {
+		return fmt.Errorf("failed to read daemon connection info: %w", err)
+	}
+
+	c._locker.Lock()
+	c._secret = secret
+	c._locker.Unlock()
+
 	// establish connection to a daemon
-	if err := c._conn.Connect(uint(c._port)); err != nil {
+	if err := c._conn.Connect(uint(port)); err != nil {
 		c.Disconnect()
 		return fmt.Errorf("failed to connect to IVPN daemon: %w", err)
 	}
@@ -225,9 +238,12 @@ func (c *Client) InitHelloRequest() Hello {
 }
 
 func (c *Client) getNextMsgIdx() uint32 {
-	c._msgIdx.Add(1)
-	c._msgIdx.CompareAndSwap(0, 1) // handles overflow wrap-around
-	return c._msgIdx.Load()
+	idx := c._msgIdx.Add(1)
+	if idx == 0 {
+		// 0 is reserved as "no index"; skip it on uint32 overflow.
+		idx = c._msgIdx.Add(1)
+	}
+	return idx
 }
 
 func (c *Client) send(cmd IRequestBase, idx uint32) error {
@@ -304,11 +320,12 @@ func (c *Client) sendRecv(request IRequestBase, ignoreResponseIndex bool, timeou
 func (c *Client) recvMessagesHandler() {
 	defer func() {
 		c._locker.Lock()
-		defer c._locker.Unlock()
 		if c._conn != nil {
 			c._conn.Disconnect()
 			c._conn = nil
 		}
+		c._locker.Unlock()
+
 		c._logger.Info("Receiver routine stopped")
 	}()
 

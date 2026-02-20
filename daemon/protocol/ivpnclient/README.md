@@ -33,10 +33,8 @@ import (
 )
 
 client, err := ivpnclient.NewClientAsRoot(
-    portInfoFile,        // path to daemon port-info file
-    paranoidModeFile,    // path to paranoid-mode secret file (pass "" to skip)
-    nil,                 // Logger — nil discards all logs
-    30*time.Second,      // default response timeout
+    nil,             // Logger — nil discards all logs
+    30*time.Second,  // default response timeout
     ivpnclient.ClientInfo{
         Type:    ivpnclient.ClientCli,
         Name:    "my-app",

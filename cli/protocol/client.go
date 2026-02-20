@@ -65,8 +65,6 @@ func (ivpnClientLogger) Error(v ...interface{}) { logger.Error(v...) }
 
 // CreateClient initializing new client for IVPN daemon
 func CreateClient(
-	port int,
-	secret uint64,
 	paranoidModeSecretRequestFunc ipc.ParanoidModeSecretRequestFunc,
 	printFunc func(text string)) (*Client, error) {
 
@@ -76,8 +74,6 @@ func CreateClient(
 	}
 
 	ivpnClient, err := ivpnclient.NewClient(
-		port,
-		secret,
 		paranoidModeSecretRequestFunc,
 		ivpnClientLogger{},
 		time.Second*60*3,

@@ -24,11 +24,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
 	"text/tabwriter"
@@ -37,7 +35,6 @@ import (
 	"github.com/ivpn/desktop-app/cli/commands"
 	"github.com/ivpn/desktop-app/cli/flags"
 	"github.com/ivpn/desktop-app/cli/protocol"
-	"github.com/ivpn/desktop-app/daemon/service/platform"
 	"github.com/ivpn/desktop-app/daemon/version"
 	"golang.org/x/term"
 )
@@ -152,17 +149,7 @@ func main() {
 
 	}
 
-	// initialize command handler
-	port, secret, err := readDaemonPort()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Unable to connect to service: %s\n", err)
-		printServStartInstructions()
-		os.Exit(1)
-	}
-
 	proto, err := protocol.CreateClient(
-		port,
-		secret,
 		RequestParanoidModePassword,
 		PrintToConsoleFunc)
 
@@ -260,41 +247,4 @@ func runCommand(c ICommand, args []string) {
 	if err := c.Run(); err != nil {
 		funcExitErrBadParam(err)
 	}
-}
-
-// read port+secret to be able to connect to a daemon
-func readDaemonPort() (port int, secret uint64, err error) {
-	file := platform.ServicePortFile()
-	if len(file) == 0 {
-		return 0, 0, fmt.Errorf("connection-info file not defined")
-	}
-
-	if _, err := os.Stat(file); err != nil {
-		if os.IsNotExist(err) {
-			return 0, 0, fmt.Errorf("please, ensure IVPN daemon is running (connection-info not exists)")
-		}
-		return 0, 0, fmt.Errorf("connection-info check error: %s", err)
-	}
-
-	data, err := os.ReadFile(filepath.Clean(file))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	vars := strings.Split(string(data), ":")
-	if len(vars) != 2 {
-		return 0, 0, fmt.Errorf("failed to parse connection-info")
-	}
-
-	port, err = strconv.Atoi(strings.TrimSpace(vars[0]))
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to parse connection-info: %w", err)
-	}
-
-	secret, err = strconv.ParseUint(strings.TrimSpace(vars[1]), 16, 64)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to parse connection-info: %w", err)
-	}
-
-	return port, secret, nil
 }
