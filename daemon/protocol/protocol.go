@@ -106,11 +106,10 @@ type Service interface {
 	SetUserPreferences(userPrefs preferences.UserPreferences) (err error)
 	ResetPreferences() error
 
-	// SetManualDNS update default DNS parameters AND apply new DNS value for current VPN connection
-	// If 'antiTracker' is enabled - the 'dnsCfg' will be ignored
-	SetManualDNS(dns dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) (changedDns dns.DnsSettings, retErr error)
-	GetManualDNSStatus() dns.DnsSettings
-	GetAntiTrackerStatus() service_types.AntiTrackerMetadata
+	// SetDnsOverride update custom DNS parameters AND apply new DNS value for current VPN connection
+	SetDnsOverride(dns dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) (retErr error)
+	GetSettingsManualDNS() dns.DnsSettings
+	GetSettingsAntiTracker() service_types.AntiTrackerMetadata
 
 	IsCanConnectMultiHop() error
 	Connect(params service_types.ConnectionParams) error
@@ -855,7 +854,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				break
 			}
 
-			_, err := p._service.SetManualDNS(req.Dns, req.AntiTracker)
+			err := p._service.SetDnsOverride(req.Dns, req.AntiTracker)
 			if err != nil {
 				log.ErrorTrace(err)
 				p.sendErrorResponse(conn, reqCmd, err)
@@ -863,7 +862,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx) // notify: request processed
 			}
 			// notify current DNS status
-			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetManualDNSStatus(), AntiTrackerStatus: p._service.GetAntiTrackerStatus()}})
+			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetSettingsManualDNS(), AntiTrackerStatus: p._service.GetSettingsAntiTracker()}})
 		}
 	case "GetDnsPredefinedConfigs":
 		cfgs, err := dns.GetPredefinedDnsConfigurations()
