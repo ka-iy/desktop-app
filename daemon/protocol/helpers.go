@@ -23,9 +23,12 @@
 package protocol
 
 import (
+	"fmt"
+	"os"
 	"runtime"
 	"time"
 
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/platform"
@@ -89,24 +92,83 @@ func (p *Protocol) createConnectedResponse(state vpn.StateInfo) *types.Connected
 		pausedTillStr = ""
 	}
 
-	manualDns := dns.GetLastManualDNS()
-
 	ret := &types.ConnectedResp{
-		TimeSecFrom1970: state.Time,
-		ClientIP:        state.ClientIP.String(),
-		ClientIPv6:      ipv6,
-		ServerIP:        state.ServerIP.String(),
-		ServerPort:      state.ServerPort,
-		VpnType:         state.VpnType,
-		ExitHostname:    state.ExitHostname,
-		Dns:             types.DnsStatus{Dns: manualDns, AntiTrackerStatus: p._service.GetSettingsAntiTracker()},
-		IsTCP:           state.IsTCP,
-		Mtu:             state.Mtu,
-		V2RayProxy:      state.V2RayProxy,
-		Obfsproxy:       state.Obfsproxy,
-		IsPaused:        p._service.IsPaused(),
-		PausedTill:      pausedTillStr,
+		ConnectedResp: ivpnclient.ConnectedResp{
+			TimeSecFrom1970: state.Time,
+			ClientIP:        state.ClientIP.String(),
+			ClientIPv6:      ipv6,
+			ServerIP:        state.ServerIP.String(),
+			ServerPort:      state.ServerPort,
+			IsTCP:           state.IsTCP,
+			Mtu:             state.Mtu,
+			IsPaused:        p._service.IsPaused(),
+			PausedTill:      pausedTillStr,
+		},
+
+		VpnType:      state.VpnType,
+		ExitHostname: state.ExitHostname,
+		Dns:          p.createDnsStatus(),
+
+		V2RayProxy: state.V2RayProxy,
+		Obfsproxy:  state.Obfsproxy,
 	}
 
 	return ret
+}
+
+func (p *Protocol) createDnsStatus() types.DnsStatus {
+	return types.DnsStatus{
+		Dns:                p._service.GetSettingsManualDNS(),
+		AntiTrackerStatus:  p._service.GetSettingsAntiTracker(),
+		TempPrioritizedDns: p._service.GetSettingsTempPrioritizedDNS(),
+	}
+}
+
+func (p *Protocol) createAlternateDNSResponse() *types.SetAlternateDNSResp {
+	return &types.SetAlternateDNSResp{Dns: p.createDnsStatus()}
+}
+
+func (p *Protocol) createBinariesInfoResponse() *ivpnclient.BinariesInfo {
+	binaries := make([]ivpnclient.BinaryInfo, 0)
+
+	selfPath, err := os.Executable()
+	if err != nil {
+		log.Error(fmt.Sprintf("createBinariesInfoResponse: failed to get executable path: %v", err))
+	} else {
+		binaries = append(binaries, ivpnclient.BinaryInfo{
+			Name:       "Daemon",
+			Path:       selfPath,
+			BinaryType: ivpnclient.BinaryTypeDaemon,
+		})
+	}
+	binaries = append(binaries, ivpnclient.BinaryInfo{
+		Name:       "OpenVPN",
+		Path:       platform.OpenVpnBinaryPath(),
+		BinaryType: ivpnclient.BinaryTypeVpnClient,
+	})
+	binaries = append(binaries, ivpnclient.BinaryInfo{
+		Name:       "WireGuard",
+		Path:       platform.WgBinaryPath(),
+		BinaryType: ivpnclient.BinaryTypeVpnClient,
+	})
+	binaries = append(binaries, ivpnclient.BinaryInfo{
+		Name:       "Obfsproxy",
+		Path:       platform.ObfsproxyStartScript(),
+		BinaryType: ivpnclient.BinaryTypeVpnClient,
+	})
+	binaries = append(binaries, ivpnclient.BinaryInfo{
+		Name:       "V2Ray",
+		Path:       platform.V2RayBinaryPath(),
+		BinaryType: ivpnclient.BinaryTypeVpnClient,
+	})
+	dnscryptProxyBin, _, _ := platform.DnsCryptProxyInfo()
+	binaries = append(binaries, ivpnclient.BinaryInfo{
+		Name:       "DNSCrypt Proxy",
+		Path:       dnscryptProxyBin,
+		BinaryType: ivpnclient.BinaryTypeVpnClient,
+	})
+
+	return &ivpnclient.BinariesInfo{
+		Binaries: binaries,
+	}
 }

@@ -24,7 +24,6 @@ package types
 
 import (
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	service_types "github.com/ivpn/desktop-app/daemon/service/types"
 	"github.com/ivpn/desktop-app/daemon/vpn"
@@ -110,13 +109,6 @@ type SetPreference struct {
 type SetUserPreferences struct {
 	RequestBase
 	UserPrefs preferences.UserPreferences
-}
-
-// SetAlternateDns request to set custom DNS
-type SetAlternateDns struct {
-	RequestBase
-	AntiTracker service_types.AntiTrackerMetadata
-	Dns         dns.DnsSettings // If 'AntiTracker' is enabled - his parameter will be ignored
 }
 
 // GetDnsPredefinedConfigs request to get list of predefined DoH/DoT configurations (if exists)

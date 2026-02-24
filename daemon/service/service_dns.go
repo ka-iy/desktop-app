@@ -24,16 +24,34 @@ func (s *Service) GetSettingsAntiTracker() types.AntiTrackerMetadata {
 	return retAtMetadata
 }
 
+func (s *Service) GetSettingsTempPrioritizedDNS() types.TempDnsSettings {
+	return s.TempPrioritizedDns
+}
+
 // SetDnsOverride update the custom DNS parameters in service settings
 // and apply new DNS value for current VPN connection (if it is connected)
 func (s *Service) SetDnsOverride(
-	dnsCfg dns.DnsSettings,
-	antiTracker types.AntiTrackerMetadata) (retErr error) {
+	dnsCfg *dns.DnsSettings,
+	antiTracker *types.AntiTrackerMetadata,
+	tempPrioritizedDns *types.TempDnsSettings) (retErr error) {
 
-	var err error
+	// validate parameters
+	if dnsCfg != nil {
+		if err := dnsCfg.ValidateAndNormalize(); err != nil {
+			return fmt.Errorf("invalid DNS configuration: %w", err)
+		}
+	}
+	if tempPrioritizedDns != nil {
+		if err := tempPrioritizedDns.Dns.ValidateAndNormalize(); err != nil {
+			return fmt.Errorf("invalid temporary prioritized DNS configuration: %w", err)
+		}
+		if tempPrioritizedDns.Dns.IsEmpty() {
+			tempPrioritizedDns.Description = ""
+		}
+	}
 
 	// Split-Tunneling related part
-	if !dnsCfg.IsEmpty() || antiTracker.Enabled {
+	if (dnsCfg != nil && !dnsCfg.IsEmpty()) || (antiTracker != nil && antiTracker.Enabled) || (tempPrioritizedDns != nil && !tempPrioritizedDns.Dns.IsEmpty()) {
 		prefs := s.Preferences()
 		if prefs.IsInverseSplitTunneling() && prefs.SplitTunnelAnyDns {
 			return fmt.Errorf("custom DNS or AntiTracker cannot be enabled while allowing all DNS for Inverse Split Tunnel mode; please block non-IVPN DNS first in the Inverse Split Tunnel configuration")
@@ -42,15 +60,17 @@ func (s *Service) SetDnsOverride(
 	isChanged := false
 	defer func() {
 		if isChanged {
-			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servrers or to manually defined server
+			// Apply Firewall rule (for Inverse Split Tunnel): allow DNS requests only to IVPN servers or to manually defined servers
 			if err := s.splitTunnelling_ApplyConfig(); err != nil {
 				log.Error(err)
 			}
 		}
 	}()
 
+	var err error
+
 	// Update manual DNS options in service settings
-	isChanged, err = s.saveDnsParams(dnsCfg, antiTracker)
+	isChanged, err = s.saveDnsParams(dnsCfg, antiTracker, tempPrioritizedDns)
 	if err != nil {
 		return err
 	}
@@ -60,28 +80,51 @@ func (s *Service) SetDnsOverride(
 }
 
 // saveDnsParams just saves DNS parameters into service connection settings
-func (s *Service) saveDnsParams(dnsCfg dns.DnsSettings, antiTrackerCfg types.AntiTrackerMetadata) (updated bool, retErr error) {
+func (s *Service) saveDnsParams(
+	dnsCfg *dns.DnsSettings,
+	antiTrackerCfg *types.AntiTrackerMetadata,
+	tmpPrioritizedDnsCfg *types.TempDnsSettings) (updated bool, retErr error) {
 	defaultParams := s.GetConnectionParams()
 
-	dnsEqual := defaultParams.ManualDNS.Equal(dnsCfg)
-	attEqual := defaultParams.Metadata.AntiTracker.Equal(antiTrackerCfg)
+	// Check which parameters have to be updated
+	isDnsNew := false
+	isAttNew := false
+	idPioNew := false
 
-	if dnsEqual && attEqual {
+	if dnsCfg != nil {
+		isDnsNew = !defaultParams.ManualDNS.Equal(*dnsCfg)
+	}
+	if antiTrackerCfg != nil {
+		isAttNew = !defaultParams.Metadata.AntiTracker.Equal(*antiTrackerCfg)
+	}
+	if tmpPrioritizedDnsCfg != nil {
+		idPioNew = !s.TempPrioritizedDns.Equal(*tmpPrioritizedDnsCfg)
+	}
+
+	// If no changes - do nothing
+	if !isDnsNew && !isAttNew && !idPioNew {
 		return false, nil
 	}
 
-	if !attEqual {
-		at, err := s.normalizeAntiTrackerBlockListName(antiTrackerCfg)
+	// Update parameters in service settings
+
+	if idPioNew {
+		s.TempPrioritizedDns = *tmpPrioritizedDnsCfg
+	}
+
+	if isAttNew {
+		at, err := s.normalizeAntiTrackerBlockListName(*antiTrackerCfg)
 		if err != nil {
 			return false, err
 		}
-		antiTrackerCfg = at
+		defaultParams.Metadata.AntiTracker = at
 	}
 
-	// save DNS and AntiTracker default metadata
-	defaultParams.ManualDNS = dnsCfg
-	defaultParams.Metadata.AntiTracker = antiTrackerCfg
+	if isDnsNew {
+		defaultParams.ManualDNS = *dnsCfg
+	}
 
+	// Save new parameters
 	return true, s.setConnectionParams(defaultParams)
 }
 
@@ -117,9 +160,9 @@ func (s *Service) getEffectiveDnsOverride() (realDnsValue dns.DnsSettings, err e
 	defaultParams := s.GetConnectionParams()
 
 	// If temporary prioritized DNS server is defined - use it (it has the highest priority)
-	//if addr := defaultParams.Metadata.TempPrioritizedDnsServer.Address(); addr != nil {
-	//	return dns.DnsSettingsCreate(addr), nil
-	//}
+	if !s.TempPrioritizedDns.IsEmpty() {
+		return s.TempPrioritizedDns.Dns, nil
+	}
 
 	// If AntiTracker enabled - return DNS of AntiTracker server
 	antiTrackerCfg := defaultParams.Metadata.AntiTracker

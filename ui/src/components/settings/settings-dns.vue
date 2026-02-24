@@ -1,7 +1,16 @@
 <template>
-  <div style="min-height: 100%; display: flex; flex-direction: column;">
-    <div class="settingsTitle" tabindex="0">DNS SETTINGS</div>
+  <div style="position: relative;">
+    <div class="settingsTitle replacer-above">DNS SETTINGS</div>
+        
+    <!-- Blocked control info: covers siblings when visible -->
+    <template v-for="prioritizedDns in [$store.getters['settings/getPrioritizedDNS']]" :key="0">
+      <ComponentReplacer :visible="!!prioritizedDns" style="height: 400px;">
+        <div class="settingsBoldFont">{{ prioritizedDns?.Description }}</div>
+        <div class="settingsDescription">{{ prioritizedDns?.IssuerDescription }}</div>
+      </ComponentReplacer>
+    </template>
 
+    <!-- DNS settings -->
     <div v-if="linuxIsShowResolvConfMgmtOption" style="margin-top: 0px;">
       <div class="param">
         <input
@@ -198,6 +207,7 @@
 import { DnsEncryption, VpnStateEnum } from "@/store/types";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import ComponentDialog from "@/components/component-dialog.vue";
+import ComponentReplacer from "@/components/ComponentReplacer.vue";
 
 const sender = window.ipcSender;
 
@@ -220,6 +230,7 @@ function processError(e) {
 export default {
   components: {
     ComponentDialog,
+    ComponentReplacer,
   },
   props: { registerBeforeCloseHandler: Function },
   created() {

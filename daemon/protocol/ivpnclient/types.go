@@ -124,4 +124,7 @@ type Hello struct {
 
 	// GetWiFiCurrentState == true - client requests info about current WiFi
 	GetWiFiCurrentState bool `json:",omitempty"`
+
+	// GetAlternateDnsStatus == true - client requests info about current alternate DNS status (user-defined manual DNS, AntiTracker and temporary prioritized DNS)
+	GetAlternateDnsStatus bool `json:",omitempty"`
 }

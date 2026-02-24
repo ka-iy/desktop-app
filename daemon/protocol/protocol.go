@@ -36,6 +36,7 @@ import (
 	"time"
 
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
+	"github.com/ivpn/desktop-app/daemon/interoperability/portmaster"
 	"github.com/ivpn/desktop-app/daemon/logger"
 	"github.com/ivpn/desktop-app/daemon/oshelpers"
 	"github.com/ivpn/desktop-app/daemon/protocol/eaa"
@@ -107,9 +108,10 @@ type Service interface {
 	ResetPreferences() error
 
 	// SetDnsOverride update custom DNS parameters AND apply new DNS value for current VPN connection
-	SetDnsOverride(dns dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) (retErr error)
+	SetDnsOverride(dns *dns.DnsSettings, antiTracker *service_types.AntiTrackerMetadata, tempPrioritizedDns *service_types.TempDnsSettings) (retErr error)
 	GetSettingsManualDNS() dns.DnsSettings
 	GetSettingsAntiTracker() service_types.AntiTrackerMetadata
+	GetSettingsTempPrioritizedDNS() service_types.TempDnsSettings
 
 	IsCanConnectMultiHop() error
 	Connect(params service_types.ConnectionParams) error
@@ -148,15 +150,21 @@ type Service interface {
 // CreateProtocol - Create new protocol object
 func CreateProtocol() (*Protocol, error) {
 	return &Protocol{
-		_connections:     make(map[net.Conn]connectionInfo),
+		_connections:     make(map[net.Conn]*connectionInfo),
 		_eaa:             eaa.Init(platform.ParanoidModeSecretFile()),
 		_connRequestChan: make(chan service_types.ConnectionParams, 1),
 	}, nil
 }
 
+type toRestore struct {
+	dnsSettings dns.DnsSettings
+	antitracker service_types.AntiTrackerMetadata
+}
+
 type connectionInfo struct {
-	Type            ivpnclient.ClientTypeEnum // UI or CLI
-	IsAuthenticated bool                      // true when connection fully authenticated (secret is OK and EAA check is passed)
+	Type                    ivpnclient.ClientTypeEnum // UI or CLI
+	IsAuthenticated         bool                      // true when connection fully authenticated (secret is OK and EAA check is passed)
+	IsPrioritizedDnsDefined bool                      // true when the connection has defined prioritized DNS settings (e.g. Portmaster custom DNS)
 }
 
 // Protocol - TCP interface to communicate with IVPN application
@@ -167,7 +175,7 @@ type Protocol struct {
 	_connListener *net.TCPListener
 
 	_connectionsMutex sync.RWMutex
-	_connections      map[net.Conn]connectionInfo
+	_connections      map[net.Conn]*connectionInfo
 
 	// Only last connect request will be processed (if there are more then one received in short period of time)
 	_connRequestMutex sync.Mutex
@@ -262,6 +270,9 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	// See also "RegisterConnectionRequest()" for details)
 	go p.processConnectionRequests()
 
+	// Interoperability with Safing Portmaster: send ping to Portmaster to notify it that IVPN Client is alive.
+	portmaster.PingPortmaster()
+
 	// infinite loop of processing IVPN client connection
 	for {
 		conn, err := listener.Accept()
@@ -279,7 +290,7 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 func (p *Protocol) processClient(conn net.Conn) {
 	// The first request from a client should be 'Hello' request with correct secret
 	// In case of wrong secret - the daemon drops connection
-	isAuthenticated := false
+	secretVerified := false
 
 	clientRemoteAddr := conn.RemoteAddr()
 	log.Info("Client connected: ", clientRemoteAddr)
@@ -294,6 +305,13 @@ func (p *Protocol) processClient(conn net.Conn) {
 
 		disconnectedClientInfo := p.clientDisconnected(conn)
 		log.Info("Client disconnected: ", conn.RemoteAddr())
+
+		// If the disconnected client had defined prioritized DNS settings (e.g. Portmaster custom DNS) - remove them from service settings (if any)
+		if disconnectedClientInfo != nil && disconnectedClientInfo.IsPrioritizedDnsDefined {
+			empty := service_types.TempDnsSettings{}
+			p._service.SetDnsOverride(nil, nil, &empty)
+			p.notifyClients(p.createAlternateDNSResponse())
+		}
 
 		// if VPN Paused:
 		//	- if only UI client was connected and now it disconnected - disconnect VPN
@@ -326,7 +344,7 @@ func (p *Protocol) processClient(conn net.Conn) {
 		}
 
 		// CONNECTION AUTHENTICATION: First request should be 'Hello' with correct authentication secret
-		if !isAuthenticated {
+		if !secretVerified {
 			messageData := []byte(message)
 
 			cmd, err := types.GetRequestBase(messageData)
@@ -351,8 +369,8 @@ func (p *Protocol) processClient(conn net.Conn) {
 				return
 			}
 
-			// AUTHENTICATED
-			isAuthenticated = true
+			// verified
+			secretVerified = true
 			p.clientConnected(conn, hello.ClientType)
 		}
 
@@ -420,7 +438,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			p.sendResponse(conn, p.createConnectedResponse(vpnState), reqIdx)
 		} else if !isOnlyIfConnected {
 			if vpnState.State == vpn.DISCONNECTED {
-				p.sendResponse(conn, &types.DisconnectedResp{IsStateInfo: true, Failure: false, Reason: 0, ReasonDescription: ""}, reqIdx)
+				p.sendResponse(conn, &ivpnclient.DisconnectedResp{IsStateInfo: true, Failure: false, Reason: 0, ReasonDescription: ""}, reqIdx)
 			} else {
 				p.sendResponse(conn, &types.VpnStateResp{StateVal: vpnState.State, State: vpnState.State.String()}, reqIdx)
 			}
@@ -511,6 +529,10 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		if req.GetWiFiCurrentState {
 			// sending WIFI info
 			p.OnWiFiChanged(p._service.GetWiFiCurrentState())
+		}
+
+		if req.GetAlternateDnsStatus {
+			p.sendResponse(conn, p.createAlternateDNSResponse(), req.Idx)
 		}
 
 	case "ParanoidModeSetPasswordReq":
@@ -842,19 +864,20 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 	case "SetAlternateDns":
 		{
-			var req types.SetAlternateDns
+			var req ivpnclient.SetAlternateDns
 			if err := json.Unmarshal(messageData, &req); err != nil {
 				p.sendErrorResponse(conn, reqCmd, err)
 				break
 			}
-
-			// validate DNS configuration
-			if err := req.Dns.ValidateAndNormalize(); err != nil {
-				p.sendErrorResponse(conn, reqCmd, fmt.Errorf("invalid DNS configuration: %w", err))
+			if err := p.ensureCanModifyDnsSettings(conn); err != nil {
+				p.sendErrorResponse(conn, reqCmd, err)
 				break
 			}
 
-			err := p._service.SetDnsOverride(req.Dns, req.AntiTracker)
+			dnsArg := convertIvpnclientType_Dns(req.Dns)
+			antitrackerArg := convertInternalType_AntiTracker(req.AntiTracker)
+
+			err := p._service.SetDnsOverride(&dnsArg, &antitrackerArg, nil)
 			if err != nil {
 				log.ErrorTrace(err)
 				p.sendErrorResponse(conn, reqCmd, err)
@@ -862,8 +885,49 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 				p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx) // notify: request processed
 			}
 			// notify current DNS status
-			p.notifyClients(&types.SetAlternateDNSResp{Dns: types.DnsStatus{Dns: p._service.GetSettingsManualDNS(), AntiTrackerStatus: p._service.GetSettingsAntiTracker()}})
+			p.notifyClients(p.createAlternateDNSResponse())
 		}
+	case "SetTempPrioritizedDns":
+		{
+			var req ivpnclient.SetTempPrioritizedDns
+			if err := json.Unmarshal(messageData, &req); err != nil {
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+			if err := p.ensureCanModifyDnsSettings(conn); err != nil {
+				p.sendErrorResponse(conn, reqCmd, err)
+				break
+			}
+
+			connInfo := p.getConnectionInfo(conn)
+
+			// Initialize TempDnsSettings object
+			description := "DNS settings are currently managed by an external application"
+			if connInfo.Type == ivpnclient.ClientPortmaster {
+				description = "DNS settings are currently managed by Portmaster"
+			}
+			tmpDns := service_types.TempDnsSettings{
+				Dns:               convertIvpnclientType_Dns(req.Dns),
+				Description:       description,
+				IssuerDescription: req.Description,
+			}
+			// Set temporary prioritized DNS settings (empty settings will disable prioritized DNS)
+			err := p._service.SetDnsOverride(nil, nil, &tmpDns)
+			if err != nil {
+				log.ErrorTrace(err)
+				p.sendErrorResponse(conn, reqCmd, err)
+			} else {
+				// Mark connection info that it has defined prioritized DNS settings (e.g. Portmaster custom DNS)
+				connInfo.IsPrioritizedDnsDefined = !tmpDns.IsEmpty()
+				p.sendResponse(conn, &types.EmptyResp{}, reqCmd.Idx) // notify: request processed
+			}
+			// notify current DNS status
+			p.notifyClients(p.createAlternateDNSResponse())
+		}
+	case "GetBinariesInfo":
+		resp := p.createBinariesInfoResponse()
+		p.sendResponse(conn, resp, reqCmd.Idx)
+
 	case "GetDnsPredefinedConfigs":
 		cfgs, err := dns.GetPredefinedDnsConfigurations()
 		if err != nil {
@@ -1092,7 +1156,7 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 		p._lastConnectionErrorToNotifyClient = ""
 
 		if !p._service.Connected() {
-			p.sendResponse(conn, &types.DisconnectedResp{Reason: types.DisconnectRequested}, reqCmd.Idx)
+			p.sendResponse(conn, &ivpnclient.DisconnectedResp{Reason: ivpnclient.DisconnectRequested}, reqCmd.Idx)
 			// INFO: _service.Connected() is based on a simple check (s._vpn != nil). So there is still a chance
 			// that the connection-retry loop is running and we just caught a moment while s._vpn is temporarily nil.
 			// Therefore, we continue to ensure that Disconnect() is called.
@@ -1226,9 +1290,9 @@ func (p *Protocol) processConnectionRequests() {
 					p._lastVPNState = vpn.NewStateInfo(vpn.DISCONNECTED, "")
 
 					// Sending "Disconnected" only in one place (after VPN process stopped)
-					disconnectionReason := types.Unknown
+					disconnectionReason := ivpnclient.Unknown
 					if lastState.State == vpn.EXITING && lastState.IsAuthError {
-						disconnectionReason = types.AuthenticationError
+						disconnectionReason = ivpnclient.AuthenticationError
 						if connectionError == nil {
 							connectionError = fmt.Errorf("authentication failure")
 						}
@@ -1236,7 +1300,7 @@ func (p *Protocol) processConnectionRequests() {
 					if p._disconnectRequested {
 						// notify clients that disconnection was manually requested by one of connected clients
 						// (prevent UI clients trying to reconnect)
-						disconnectionReason = types.DisconnectRequested
+						disconnectionReason = ivpnclient.DisconnectRequested
 					}
 
 					errMsg := ""
@@ -1244,7 +1308,7 @@ func (p *Protocol) processConnectionRequests() {
 						errMsg = connectionError.Error()
 					}
 					saveLastError(connectionError)
-					p.notifyClients(&types.DisconnectedResp{Failure: connectionError != nil, Reason: disconnectionReason, ReasonDescription: errMsg})
+					p.notifyClients(&ivpnclient.DisconnectedResp{Failure: connectionError != nil, Reason: disconnectionReason, ReasonDescription: errMsg})
 				}
 			}()
 

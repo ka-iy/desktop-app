@@ -135,6 +135,11 @@ type Service struct {
 	// (UI may send us new connection settings while VPN is connected, e.g., when the user changes connection settings in the UI)
 	_tmpParams      types.ConnectionParams
 	_tmpParamsMutex sync.Mutex
+
+	// Temporary prioritized DNS server that takes precedence over AntiTracker, ManualDNS, and internal DNS settings.
+	// Intended for clients that manage DNS only while connected (e.g. Portmaster).
+	// Not persistent: resets to empty on next application start and is cleared automatically on client disconnect.
+	TempPrioritizedDns types.TempDnsSettings
 }
 
 // VpnSessionInfo - Additional information about current VPN connection

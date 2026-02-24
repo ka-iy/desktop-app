@@ -40,7 +40,6 @@ type DnsExtraSettings struct {
 
 var (
 	log                         *logger.Logger
-	lastManualDNS               DnsSettings
 	funcDnsChangeFirewallNotify FuncDnsChangeFirewallNotify
 	funcGetUserSettings         FuncGetUserSettings
 )
@@ -120,10 +119,6 @@ func EncryptionAbilities() (dnsOverHttps, dnsOverTls bool, err error) {
 // 'localInterfaceIP' - local IP of VPN interface
 func SetDefault(dnsCfg DnsSettings, localInterfaceIP net.IP) error {
 	ret := SetManual(dnsCfg, localInterfaceIP)
-	if ret == nil {
-		lastManualDNS = DnsSettings{}
-	}
-
 	return wrapErrorIfFailed(ret)
 }
 
@@ -143,9 +138,7 @@ func SetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) error {
 	}
 
 	dnsForFirewallRules, err := implSetManual(dnsCfg, localInterfaceIP)
-	if err == nil {
-		lastManualDNS = dnsCfg
-	} else {
+	if err != nil {
 		return wrapErrorIfFailed(err)
 	}
 
@@ -158,20 +151,12 @@ func SetManual(dnsCfg DnsSettings, localInterfaceIP net.IP) error {
 func DeleteManual(defaultDns net.IP, localInterfaceIP net.IP) error {
 	// reset custom DNS
 	ret := implDeleteManual(localInterfaceIP)
-	if ret == nil {
-		lastManualDNS = DnsSettings{}
-	} else {
+	if ret != nil {
 		return wrapErrorIfFailed(ret)
 	}
 
 	// notify firewall about default DNS
 	return wrapErrorIfFailed(notifyFirewall(DnsSettingsCreate(defaultDns)))
-}
-
-// GetLastManualDNS - returns information about current manual DNS
-func GetLastManualDNS() DnsSettings {
-	// TODO: get real DNS configuration of the OS
-	return lastManualDNS
 }
 
 func GetPredefinedDnsConfigurations() ([]DnsSettings, error) {

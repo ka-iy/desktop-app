@@ -74,7 +74,7 @@ func (p *Protocol) IsCanDoBackgroundAction() bool {
 func (p *Protocol) clientConnected(c net.Conn, cType ivpnclient.ClientTypeEnum) {
 	p._connectionsMutex.Lock()
 	defer p._connectionsMutex.Unlock()
-	p._connections[c] = connectionInfo{Type: cType}
+	p._connections[c] = &connectionInfo{Type: cType}
 }
 
 func (p *Protocol) clientDisconnected(c net.Conn) (disconnectedClientInfo *connectionInfo) {
@@ -82,7 +82,7 @@ func (p *Protocol) clientDisconnected(c net.Conn) (disconnectedClientInfo *conne
 	defer p._connectionsMutex.Unlock()
 
 	if ci, ok := p._connections[c]; ok {
-		disconnectedClientInfo = &ci
+		disconnectedClientInfo = ci
 	}
 
 	delete(p._connections, c)
@@ -92,9 +92,16 @@ func (p *Protocol) clientDisconnected(c net.Conn) (disconnectedClientInfo *conne
 }
 
 func (p *Protocol) clientsConnectedCount() int {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
 	return len(p._connections)
+}
+
+func (p *Protocol) getConnectionInfo(c net.Conn) (cInfo *connectionInfo) {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
+	cInfo, _ = p._connections[c]
+	return
 }
 
 // Notifying clients "service is going to stop" (client application (UI) will close)
@@ -119,7 +126,7 @@ func (p *Protocol) notifyClientsDaemonExiting() {
 	// erasing clients connections
 	p._connectionsMutex.Lock()
 	defer p._connectionsMutex.Unlock()
-	p._connections = make(map[net.Conn]connectionInfo)
+	p._connections = make(map[net.Conn]*connectionInfo)
 }
 
 func (p *Protocol) clientSetAuthenticated(c net.Conn) {
@@ -132,7 +139,6 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 			if !cInfo.IsAuthenticated {
 				// connected client (first authentication)
 				cInfo.IsAuthenticated = true
-				p._connections[c] = cInfo
 
 				go func() {
 					// notifying service about authenticated client (autoconnect if needed)
@@ -149,4 +155,18 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 		p.sendResponse(c, &delayedErr, 0)
 	}
 	p._lastConnectionErrorToNotifyClient = ""
+}
+
+// ensureCanModifyDnsSettings checks if the client connection is allowed to modify DNS settings
+func (p *Protocol) ensureCanModifyDnsSettings(conn net.Conn) error {
+	connInfo := p.getConnectionInfo(conn)
+	if connInfo == nil {
+		return fmt.Errorf("internal error: connection info not found")
+	}
+	// If temporary prioritized DNS settings are already defined by another client - do not allow to modify DNS settings
+	curVal := p._service.GetSettingsTempPrioritizedDNS()
+	if !curVal.IsEmpty() && !connInfo.IsPrioritizedDnsDefined {
+		return fmt.Errorf("%s", curVal.Description)
+	}
+	return nil
 }

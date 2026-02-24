@@ -205,8 +205,9 @@ type DiagnosticsGeneratedResp struct {
 }
 
 type DnsStatus struct {
-	Dns               dns.DnsSettings
-	AntiTrackerStatus service_types.AntiTrackerMetadata
+	Dns                dns.DnsSettings
+	AntiTrackerStatus  service_types.AntiTrackerMetadata
+	TempPrioritizedDns service_types.TempDnsSettings
 }
 
 // SetAlternateDNSResp returns status of changing DNS
@@ -223,40 +224,13 @@ type DnsPredefinedConfigsResp struct {
 
 // ConnectedResp notifying about established connection
 type ConnectedResp struct {
-	CommandBase
-	VpnType         vpn.Type
-	TimeSecFrom1970 int64
-	ClientIP        string
-	ClientIPv6      string
-	ServerIP        string
-	ServerPort      int
-	ExitHostname    string // multi-hop exit hostname (e.g. "us-tx1.wg.ivpn.net")
-	Dns             DnsStatus
-	IsTCP           bool
-	Mtu             int                    // (for WireGuard connections)
-	V2RayProxy      v2r.V2RayTransportType // applicable only for 'CONNECTED' state
-	Obfsproxy       obfsproxy.Config       // applicable only for 'CONNECTED' state (OpenVPN)
-	IsPaused        bool                   // When "true" - the actual connection may be "disconnected" (depending on the platform and VPN protocol), but the daemon responds "connected"
-	PausedTill      string                 // pausedTill.Format(time.RFC3339)
-}
+	ivpnclient.ConnectedResp
 
-// DisconnectionReason - disconnection reason
-type DisconnectionReason int
-
-// Disconnection reason types
-const (
-	Unknown             DisconnectionReason = iota
-	AuthenticationError DisconnectionReason = iota
-	DisconnectRequested DisconnectionReason = iota
-)
-
-// DisconnectedResp notifying about stopped connetion
-type DisconnectedResp struct {
-	CommandBase
-	Failure           bool
-	Reason            DisconnectionReason //int
-	ReasonDescription string
-	IsStateInfo       bool // if 'true' - it is not an disconneection event, it is just status info "disconnected"
+	VpnType      vpn.Type
+	ExitHostname string // multi-hop exit hostname (e.g. "us-tx1.wg.ivpn.net")
+	Dns          DnsStatus
+	V2RayProxy   v2r.V2RayTransportType // applicable only for 'CONNECTED' state
+	Obfsproxy    obfsproxy.Config       // applicable only for 'CONNECTED' state (OpenVPN)
 }
 
 // VpnStateResp returns VPN connection state

@@ -1,5 +1,47 @@
 package ivpnclient
 
+// HelloResp is a response to Hello command with general from daemon
+type HelloResp struct {
+	CommandBase
+	Version       string
+	ProcessorArch string
+	// NOTE: this is not all fields that IVPN client sends, add more if needed
+}
+
+// ConnectedResp is a notification about successful connection to the VPN server.
+// It is sent by the daemon to the client when a connection is established.
+type ConnectedResp struct {
+	CommandBase
+	TimeSecFrom1970 int64
+	ClientIP        string
+	ClientIPv6      string
+	ServerIP        string
+	ServerPort      int
+	IsTCP           bool
+	Mtu             int    // (for WireGuard connections)
+	IsPaused        bool   // When "true" - the actual connection may be "disconnected" (depending on the platform and VPN protocol), but the daemon responds "connected"
+	PausedTill      string // pausedTill.Format(time.RFC3339)
+	// NOTE: this is not all fields that IVPN client sends, add more if needed
+}
+
+type DisconnectionReason int
+
+// Disconnection reason types
+const (
+	Unknown             DisconnectionReason = iota
+	AuthenticationError DisconnectionReason = iota
+	DisconnectRequested DisconnectionReason = iota
+)
+
+// DisconnectedResp notifying about stopped VPN connection
+type DisconnectedResp struct {
+	CommandBase
+	Failure           bool
+	Reason            DisconnectionReason
+	ReasonDescription string
+	IsStateInfo       bool // if 'true' - it is not an disconnection event, it is just status info "disconnected"
+}
+
 type DnsEncryption int
 
 const (
@@ -19,6 +61,10 @@ type DnsSettings struct {
 	Servers []DnsServerConfig
 }
 
+func (d DnsSettings) IsEmpty() bool {
+	return len(d.Servers) == 0
+}
+
 type AntiTrackerMetadata struct {
 	Enabled                  bool
 	Hardcore                 bool
@@ -28,19 +74,92 @@ type AntiTrackerMetadata struct {
 // SetAlternateDns request to set custom DNS
 type SetAlternateDns struct {
 	RequestBase
-	AntiTracker AntiTrackerMetadata
-	Dns         DnsSettings // If 'AntiTracker' is enabled - his parameter will be ignored
+	AntiTracker AntiTrackerMetadata // takes precedence over ManualDNS but can be overridden by TempPrioritizedDns
+	Dns         DnsSettings         // user-defined manual DNS settings
 }
 
-// SetManualDNS - sets manual DNS for current VPN connection
+// SetDnsOverride sets DNS override parameters for the current VPN connection.
+//
+// DNS priority order (highest to lowest):
+//   - antiTracker       — if enabled, uses AntiTracker DNS (overrides dnsCfg)
+//   - dnsCfg            — user-defined manual DNS
+//   - (default)         — VPN connection's own DNS
+//
+// Note: The Temporary Prioritized DNS has the highest priority and overrides all other DNS settings, but it is not set via this method.
+//
+// All three parameters are saved to service preferences, so all must be provided
+// even if only one needs to change. Recommended usage:
+//  1. Read current DNS state (dnsCfg, antiTracker)
+//  2. Modify the desired parameter(s)
+//  3. Call SetDnsOverride with the full updated set
 func (c *Client) SetManualDNS(dnsCfg DnsSettings, antiTracker AntiTrackerMetadata) error {
 	req := SetAlternateDns{Dns: dnsCfg, AntiTracker: antiTracker}
 	var resp EmptyResp
 	if err := c.SendRecv(&req, &resp); err != nil {
 		return err
 	}
-
 	return nil
+}
+
+// Temporary prioritized DNS settings
+type SetTempPrioritizedDns struct {
+	RequestBase
+	Dns DnsSettings
+	// Description of the issuer of the temporary prioritized DNS settings (e.g. "Portmaster").
+	// To be displayed in the UI to provide additional context to the user about the active DNS configuration.
+	Description string
+}
+
+// SetTempPrioritizedDns sets temporary prioritized DNS settings that take precedence over all other DNS settings (including AntiTracker).
+// Intended for clients that manage DNS only while connected (e.g. Portmaster).
+// Not persistent: resets to empty on next application start and is cleared automatically on client disconnect.
+// Parameters:
+//   - dnsCfg: DNS settings to be applied with the highest priority (overriding all other DNS settings, including AntiTracker).
+//     Setting empty dnsCfg will disable prioritized DNS and restore the priority of other DNS settings (AntiTracker, user-defined manual DNS, VPN connection's own DNS).
+//   - description: Description of the issuer of the temporary prioritized DNS settings (e.g. "Portmaster") to be displayed in the UI to provide additional context to the user about the active DNS configuration.
+func (c *Client) SetTempPrioritizedDns(dnsCfg DnsSettings, description string) error {
+	req := SetTempPrioritizedDns{Dns: dnsCfg, Description: description}
+	var resp EmptyResp
+	if err := c.SendRecv(&req, &resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// BinaryType represents the type of binary integrated into the VPN client package
+type BinaryType int
+
+const (
+	BinaryTypeUnknown   BinaryType = 0
+	BinaryTypeVpnClient BinaryType = 1
+	BinaryTypeProxy     BinaryType = 2
+	BinaryTypeDaemon    BinaryType = 3
+)
+
+type BinaryInfo struct {
+	Name       string
+	Path       string
+	BinaryType BinaryType
+}
+
+type BinariesInfo struct {
+	CommandBase
+	Binaries []BinaryInfo
+}
+
+type GetBinariesInfo struct {
+	RequestBase
+}
+
+// GetBinariesInfo retrieves information about the binaries integrated into the VPN client package,
+// including their names, paths, and types (e.g., VPN client, proxy, daemon).
+func (c *Client) GetBinariesInfo() (BinariesInfo, error) {
+	req := GetBinariesInfo{}
+	var resp BinariesInfo
+	if err := c.SendRecv(&req, &resp); err != nil {
+		return BinariesInfo{}, err
+	}
+	return resp, nil
 }
 
 //

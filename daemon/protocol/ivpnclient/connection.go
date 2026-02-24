@@ -45,7 +45,10 @@ func (c *Connection) Connect(port uint) (err error) {
 			return fmt.Errorf("already connected")
 		}
 
-		c._conn, err = net.Dial("tcp", fmt.Sprintf(":%d", port))
+		dialer := net.Dialer{
+			LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.1")},
+		}
+		c._conn, err = dialer.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 		if err != nil {
 			return fmt.Errorf("failed to connect to IVPN daemon (does IVPN daemon/service running?): %w", err)
 		}

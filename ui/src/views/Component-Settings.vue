@@ -124,7 +124,7 @@
           </div>
 
           <!-- VERSION -->
-          <div class="flexRow" style="flex-grow: 1" tabindex="0">
+          <div class="flexRow" style="flex-grow: 1">
             <div class="flexRow" style="margin: 20px; flex-grow: 1">
               <div
                 style="flex-grow: 1; text-align: center; cursor: pointer"

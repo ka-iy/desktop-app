@@ -587,7 +587,23 @@ func (c *Client) PingServers(vpnTypePrioritized *vpn.Type) (pingResults []types.
 
 // SetManualDNS - sets manual DNS for current VPN connection
 func (c *Client) SetManualDNS(dnsCfg dns.DnsSettings, antiTracker service_types.AntiTrackerMetadata) error {
-	req := types.SetAlternateDns{Dns: dnsCfg, AntiTracker: antiTracker}
+	// converting internal types
+	dnsArg := ipc.DnsSettings{Servers: make([]ipc.DnsServerConfig, len(dnsCfg.Servers))}
+	for i, srv := range dnsCfg.Servers {
+		dnsArg.Servers[i] = ipc.DnsServerConfig{
+			Address:    srv.Address,
+			Encryption: ipc.DnsEncryption(srv.Encryption), // converting to internal type
+			Template:   srv.Template,
+		}
+	}
+	antitrackerArg := ipc.AntiTrackerMetadata{
+		Enabled:                  antiTracker.Enabled,
+		Hardcore:                 antiTracker.Hardcore,
+		AntiTrackerBlockListName: antiTracker.AntiTrackerBlockListName,
+	}
+
+	// sending request
+	req := ipc.SetAlternateDns{Dns: dnsArg, AntiTracker: antitrackerArg}
 	var resp ipc.EmptyResp
 	if err := c._client.SendRecv(&req, &resp); err != nil {
 		return err
