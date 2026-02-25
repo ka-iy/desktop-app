@@ -830,7 +830,7 @@ func (s *Service) SetKillSwitchState(isEnabled bool) error {
 		s.onKillSwitchStateChanged()
 		// If no any clients connected - connection notification will not be passed to user
 		// In this case we are trying to save info message into system log
-		if !s._evtReceiver.IsClientConnected(false) {
+		if !s._evtReceiver.IsClientConnected() {
 			if isEnabled {
 				s.systemLog(Info, "IVPN Firewall enabled")
 			} else {

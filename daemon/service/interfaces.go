@@ -86,8 +86,10 @@ type IServiceEventsReceiver interface {
 
 	// called by a service when new connection is required (e.g. requested by 'trusted-wifi' functionality or 'auto-connect' on launch)
 	RegisterConnectionRequest(params service_types.ConnectionParams) error
-	// IsClientConnected checks is any authenticated connection available of specific client type
-	IsClientConnected(checkOnlyUiClients bool) bool
+	// IsClientConnected checks is any authenticated connection available
+	IsClientConnected() bool
+	// IsMainClientConnected checks is any authenticated connection available of main client type (UI)
+	IsMainClientConnected() bool
 	// IsCanDoBackgroundAction returns 'false' when no background action allowed (e.g. EAA enabled but no authenticated clients connected)
 	IsCanDoBackgroundAction() bool
 }

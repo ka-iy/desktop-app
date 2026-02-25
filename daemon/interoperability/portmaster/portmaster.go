@@ -3,6 +3,7 @@ package portmaster
 import (
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/ivpn/desktop-app/daemon/logger"
@@ -18,9 +19,19 @@ func init() {
 	log = logger.NewLogger("pm")
 }
 
+var (
+	pingRunning        atomic.Bool
+	portmasterDetected atomic.Bool
+)
+
+// WasPortmasterDetected returns true if Portmaster has been detected in previous pings.
+func WasPortmasterDetected() bool {
+	return portmasterDetected.Load()
+}
+
 // PingPortmaster sends a ping request to the Portmaster API to notify it that the IVPN Client is alive.
 // The response is intentionally ignored.
-// Portmaster listens on loopback, so the dialer is explicitly bound to loopback.
+// This function have to be called on IVPN Client startup, to inform Portmaster that the IVPN Client is running.
 func PingPortmaster() {
 	// Run in a separate goroutine to avoid blocking the caller.
 	// The returned error is intentionally discarded — this is a best-effort notification.
@@ -28,9 +39,13 @@ func PingPortmaster() {
 }
 
 func pingPortmaster() error {
-	// Use a custom dialer that explicitly binds to 127.0.0.1 to ensure
+	if !pingRunning.CompareAndSwap(false, true) {
+		return nil // A ping is already running, skip this one.
+	}
+	defer pingRunning.Store(false)
+
+	// Portmaster listens on loopback, so the dialer is explicitly bound to loopback.
 	dialer := &net.Dialer{
-		Timeout:   2 * time.Second,
 		LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.1")},
 	}
 
@@ -40,7 +55,7 @@ func pingPortmaster() error {
 
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   2 * time.Second,
+		Timeout:   5 * time.Second,
 	}
 
 	resp, err := client.Get(APIEndpointPing)
@@ -49,6 +64,7 @@ func pingPortmaster() error {
 	}
 	defer resp.Body.Close()
 
+	portmasterDetected.Store(true)
 	log.Info("Portmaster ping succeeded")
 
 	return nil

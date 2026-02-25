@@ -462,7 +462,7 @@ func (c *Client) GetServersForceUpdate() (apitypes.ServersInfoResponse, error) {
 // GetVPNState returns current VPN connection state
 func (c *Client) GetVPNState() (vpn.State, types.ConnectedResp, error) {
 	respConnected := types.ConnectedResp{}
-	respDisconnected := types.DisconnectedResp{}
+	respDisconnected := ivpnclient.DisconnectedResp{}
 	respState := types.VpnStateResp{}
 
 	req := types.GetVPNState{}
@@ -491,7 +491,7 @@ func (c *Client) GetVPNState() (vpn.State, types.ConnectedResp, error) {
 func (c *Client) DisconnectVPN() error {
 	req := types.Disconnect{}
 	respEmpty := ipc.EmptyResp{}
-	respDisconnected := types.DisconnectedResp{}
+	respDisconnected := ivpnclient.DisconnectedResp{}
 
 	err := c._client.SendRecvAny(&req, &respDisconnected, &respEmpty)
 	if err != nil {
@@ -507,7 +507,7 @@ func (c *Client) DisconnectVPN() error {
 // ConnectVPN - establish new VPN connection
 func (c *Client) ConnectVPN(req types.Connect) (types.ConnectedResp, error) {
 	respConnected := types.ConnectedResp{}
-	respDisconnected := types.DisconnectedResp{}
+	respDisconnected := ivpnclient.DisconnectedResp{}
 
 	err := c._client.SendRecvAny(&req, &respConnected, &respDisconnected)
 	if err != nil {

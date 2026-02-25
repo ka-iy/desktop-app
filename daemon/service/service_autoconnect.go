@@ -309,8 +309,7 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 
 func (s *Service) isCanApplyWiFiActions() bool {
 	prefs := s.Preferences()
-	const onlyUiClients = true
-	if !prefs.WiFiControl.CanApplyInBackground && !s._evtReceiver.IsClientConnected(onlyUiClients) {
+	if !prefs.WiFiControl.CanApplyInBackground && !s._evtReceiver.IsMainClientConnected() {
 		// WiFi action not allowed: no UI client connected (CanApplyInBackground == false)
 		return false
 	}

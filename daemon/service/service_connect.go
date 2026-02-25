@@ -507,7 +507,7 @@ func (s *Service) keepConnection(originalEntryServerInfo *svrConnInfo, createVpn
 	defer func() {
 		// If no any clients connected - disconnection notification will not be passed to user
 		// In this case we are trying to save message into system log
-		if !s._evtReceiver.IsClientConnected(false) {
+		if !s._evtReceiver.IsClientConnected() {
 			if retError != nil {
 				s.systemLog(Error, "Failed to connect VPN: "+retError.Error())
 			} else {
@@ -794,7 +794,7 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 						// If no any clients connected - connection notification will not be passed to user
 						// In this case we are trying to save info message into system log
-						if !s._evtReceiver.IsClientConnected(false) {
+						if !s._evtReceiver.IsClientConnected() {
 							s.systemLog(Info, "VPN connected")
 						}
 

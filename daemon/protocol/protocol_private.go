@@ -44,17 +44,31 @@ func (p *Protocol) connLogID(c net.Conn) string {
 
 // -------------- clients connections ---------------
 // IsClientConnected checks is any authenticated connection available of specific client type
-func (p *Protocol) IsClientConnected(checkOnlyUiClients bool) bool {
+func (p *Protocol) IsClientConnected() bool {
 	p._connectionsMutex.RLock()
 	defer p._connectionsMutex.RUnlock()
 
 	for _, val := range p._connections {
 		if val.IsAuthenticated {
-			if checkOnlyUiClients {
-				if val.Type == ivpnclient.ClientUi {
-					return true
-				}
-			} else {
+			return true
+		}
+	}
+	return false
+}
+
+// IsMainClientConnected checks is any authenticated connection available of main client type (UI)
+// All the rest client types are considered as additional (e.g. CLI, Portmaster, etc.).
+func (p *Protocol) IsMainClientConnected() bool {
+	return p.isClientConnectedByType(ivpnclient.ClientUi)
+}
+
+func (p *Protocol) isClientConnectedByType(clientType ivpnclient.ClientTypeEnum) bool {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
+
+	for _, val := range p._connections {
+		if val.IsAuthenticated {
+			if val.Type == clientType {
 				return true
 			}
 		}
@@ -65,8 +79,7 @@ func (p *Protocol) IsClientConnected(checkOnlyUiClients bool) bool {
 // IsCanDoBackgroundAction returns 'false' when no background action allowed (e.g. EAA enabled but no authenticated clients connected)
 func (p *Protocol) IsCanDoBackgroundAction() bool {
 	if p._eaa.IsEnabled() {
-		const checkOnlyUiClients = true
-		return p.IsClientConnected(checkOnlyUiClients)
+		return p.IsMainClientConnected()
 	}
 	return true
 }
