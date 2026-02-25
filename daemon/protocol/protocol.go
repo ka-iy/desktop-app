@@ -36,7 +36,7 @@ import (
 	"time"
 
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/interoperability/portmaster"
+	"github.com/ivpn/desktop-app/daemon/interoperability"
 	"github.com/ivpn/desktop-app/daemon/logger"
 	"github.com/ivpn/desktop-app/daemon/oshelpers"
 	"github.com/ivpn/desktop-app/daemon/protocol/eaa"
@@ -271,7 +271,7 @@ func (p *Protocol) Start(secret uint64, startedOnPort chan<- int, service Servic
 	go p.processConnectionRequests()
 
 	// Interoperability: send ping to Portmaster to notify it that IVPN Client is alive.
-	p.pingInteroperableApps()
+	interoperability.Ping()
 
 	// infinite loop of processing IVPN client connection
 	for {
@@ -305,10 +305,6 @@ func (p *Protocol) processClient(conn net.Conn) {
 
 		disconnectedClientInfo := p.clientDisconnected(conn)
 		log.Info("Client disconnected: ", conn.RemoteAddr())
-
-		// Just in case if the connection was unexpectedly dropped.
-		// We will notify interoperable applications that the IVPN Client is still alive and they can connect to it again.
-		p.pingDetectedInteroperableApps()
 
 		// If the disconnected client had defined prioritized DNS settings (e.g. Portmaster custom DNS) - remove them from service settings (if any)
 		if disconnectedClientInfo != nil && disconnectedClientInfo.IsPrioritizedDnsDefined {
@@ -1361,11 +1357,12 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 
 	switch state.State {
 	case vpn.CONNECTED:
-		p.pingDetectedInteroperableApps()
 		p.notifyClients(p.createConnectedResponse(state))
+		interoperability.PingDetectedApps()
 	case vpn.DISCONNECTED:
-		p.pingDetectedInteroperableApps()
-		// suppress DISCONNECTED event. It will be sent to the client only after finishing the synchronous function processConnectRequest().
+		interoperability.PingDetectedApps()
+		// Do not send DISCONNECTED event notification.
+		// It will be sent to the client only after finishing the synchronous function processConnectRequest().
 	default:
 		p.notifyClients(&types.VpnStateResp{StateVal: state.State, State: state.State.String(), StateAdditionalInfo: state.StateAdditionalInfo})
 	}
@@ -1377,23 +1374,4 @@ func (p *Protocol) OnVpnStateChanged(state vpn.StateInfo) {
 
 func (p *Protocol) OnVpnPauseChanged() {
 	p.notifyVpnStateChanged(nil)
-}
-
-// pingInteroperableApps - Ping interoperable applications (e.g. Portmaster) to notify them that the IVPN Client is alive.
-// This normally have to be called on IVPN Client startup, to inform Portmaster that the IVPN Client is running.
-func (p *Protocol) pingInteroperableApps() {
-	portmaster.PingPortmaster()
-}
-
-// pingDetectedInteroperableApps - Ping interoperable applications (e.g. Portmaster)
-// This is a fail-safe action for situations when an established Portmaster connection was dropped for some unexpected reason.
-// We notify it: "Hey! IVPN Client is still running and you can connect to it again!".
-func (p *Protocol) pingDetectedInteroperableApps() {
-	if !portmaster.WasPortmasterDetected() {
-		return // no need to ping if Portmaster was not detected
-	}
-	if p.isClientConnectedByType(ivpnclient.ClientPortmaster) {
-		return // no need to ping if Portmaster client is connected
-	}
-	portmaster.PingPortmaster()
 }

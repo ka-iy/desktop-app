@@ -20,13 +20,14 @@ func init() {
 }
 
 var (
-	pingRunning        atomic.Bool
-	portmasterDetected atomic.Bool
+	pingRunning    atomic.Bool
+	pingSuccessful atomic.Bool
 )
 
-// WasPortmasterDetected returns true if Portmaster has been detected in previous pings.
-func WasPortmasterDetected() bool {
-	return portmasterDetected.Load()
+// WasPingSuccessful returns true if the ping (http request to APIEndpointPing) was successful.
+// This can be treated as an indication that the Portmaster API is reachable and responsive.
+func WasPingSuccessful() bool {
+	return pingSuccessful.Load()
 }
 
 // PingPortmaster sends a ping request to the Portmaster API to notify it that the IVPN Client is alive.
@@ -64,8 +65,7 @@ func pingPortmaster() error {
 	}
 	defer resp.Body.Close()
 
-	portmasterDetected.Store(true)
 	log.Info("Portmaster ping succeeded")
-
+	pingSuccessful.Store(true)
 	return nil
 }

@@ -27,6 +27,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/ivpn/desktop-app/daemon/interoperability"
 	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 )
@@ -85,23 +86,34 @@ func (p *Protocol) IsCanDoBackgroundAction() bool {
 }
 
 func (p *Protocol) clientConnected(c net.Conn, cType ivpnclient.ClientTypeEnum) {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
-	p._connections[c] = &connectionInfo{Type: cType}
+	func() {
+		p._connectionsMutex.Lock()
+		defer p._connectionsMutex.Unlock()
+		p._connections[c] = &connectionInfo{Type: cType}
+	}()
+
+	interoperability.ClientConnected(cType)
 }
 
-func (p *Protocol) clientDisconnected(c net.Conn) (disconnectedClientInfo *connectionInfo) {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
+func (p *Protocol) clientDisconnected(c net.Conn) *connectionInfo {
+	ret := func() *connectionInfo {
+		p._connectionsMutex.Lock()
+		defer p._connectionsMutex.Unlock()
 
-	if ci, ok := p._connections[c]; ok {
-		disconnectedClientInfo = ci
-	}
+		var ret *connectionInfo
+		if ci, ok := p._connections[c]; ok {
+			ret = ci
+		}
 
-	delete(p._connections, c)
-	c.Close()
+		delete(p._connections, c)
+		c.Close()
 
-	return disconnectedClientInfo
+		return ret
+	}()
+
+	interoperability.ClientDisconnected(ret.Type)
+
+	return ret
 }
 
 func (p *Protocol) clientsConnectedCount() int {
