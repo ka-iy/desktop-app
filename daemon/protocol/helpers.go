@@ -23,8 +23,6 @@
 package protocol
 
 import (
-	"fmt"
-	"os"
 	"runtime"
 	"time"
 
@@ -64,9 +62,11 @@ func (p *Protocol) createHelloResponse() *types.HelloResp {
 
 	// send back Hello message with account session info
 	helloResp := types.HelloResp{
-		ParanoidMode:        types.ParanoidModeStatus{IsEnabled: p._eaa.IsEnabled()},
-		Version:             version.Version(),
-		ProcessorArch:       runtime.GOARCH,
+		ParanoidMode: types.ParanoidModeStatus{IsEnabled: p._eaa.IsEnabled()},
+		HelloResp: ivpnclient.HelloResp{
+			Version:       version.Version(),
+			ProcessorArch: runtime.GOARCH,
+		},
 		Session:             types.CreateSessionResp(prefs.Session),
 		Account:             prefs.Account,
 		SettingsSessionUUID: prefs.SettingsSessionUUID,
@@ -126,49 +126,4 @@ func (p *Protocol) createDnsStatus() types.DnsStatus {
 
 func (p *Protocol) createAlternateDNSResponse() *types.SetAlternateDNSResp {
 	return &types.SetAlternateDNSResp{Dns: p.createDnsStatus()}
-}
-
-func (p *Protocol) createBinariesInfoResponse() *ivpnclient.BinariesInfo {
-	binaries := make([]ivpnclient.BinaryInfo, 0)
-
-	selfPath, err := os.Executable()
-	if err != nil {
-		log.Error(fmt.Sprintf("createBinariesInfoResponse: failed to get executable path: %v", err))
-	} else {
-		binaries = append(binaries, ivpnclient.BinaryInfo{
-			Name:       "Daemon",
-			Path:       selfPath,
-			BinaryType: ivpnclient.BinaryTypeDaemon,
-		})
-	}
-	binaries = append(binaries, ivpnclient.BinaryInfo{
-		Name:       "OpenVPN",
-		Path:       platform.OpenVpnBinaryPath(),
-		BinaryType: ivpnclient.BinaryTypeVpnClient,
-	})
-	binaries = append(binaries, ivpnclient.BinaryInfo{
-		Name:       "WireGuard",
-		Path:       platform.WgBinaryPath(),
-		BinaryType: ivpnclient.BinaryTypeVpnClient,
-	})
-	binaries = append(binaries, ivpnclient.BinaryInfo{
-		Name:       "Obfsproxy",
-		Path:       platform.ObfsproxyStartScript(),
-		BinaryType: ivpnclient.BinaryTypeVpnClient,
-	})
-	binaries = append(binaries, ivpnclient.BinaryInfo{
-		Name:       "V2Ray",
-		Path:       platform.V2RayBinaryPath(),
-		BinaryType: ivpnclient.BinaryTypeVpnClient,
-	})
-	dnscryptProxyBin, _, _ := platform.DnsCryptProxyInfo()
-	binaries = append(binaries, ivpnclient.BinaryInfo{
-		Name:       "DNSCrypt Proxy",
-		Path:       dnscryptProxyBin,
-		BinaryType: ivpnclient.BinaryTypeVpnClient,
-	})
-
-	return &ivpnclient.BinariesInfo{
-		Binaries: binaries,
-	}
 }

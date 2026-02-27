@@ -127,4 +127,35 @@ type Hello struct {
 
 	// GetAlternateDnsStatus == true - client requests info about current alternate DNS status (user-defined manual DNS, AntiTracker and temporary prioritized DNS)
 	GetAlternateDnsStatus bool `json:",omitempty"`
+
+	// GetServiceBinaryPath == true - client requests the service to send back its binary path
+	GetServiceBinaryPath bool `json:",omitempty"`
+}
+
+// Notify clients VPN connection is going to be established
+// This command is sent before actual connection is established.
+// It is used to notify clients about upcoming connection and provide info about it (like server address, port, protocol).
+// On connection stop - ConnectionStopped command is sent.
+type ConnectionStarting struct {
+	CommandBase
+	Address  string
+	Port     uint16
+	Protocol uint8 // 6 - TCP, 17 - UDP
+}
+
+func NewConnectionStarting(address string, port uint16, isTcp bool) ConnectionStarting {
+	protocol := uint8(17) // Default to UDP
+	if isTcp {
+		protocol = 6 // TCP
+	}
+	return ConnectionStarting{
+		Address:  address,
+		Port:     port,
+		Protocol: protocol,
+	}
+}
+
+// ConnectionStopped is a notification about end of connection announced by ConnectionStarting message.
+type ConnectionStopped struct {
+	CommandBase
 }

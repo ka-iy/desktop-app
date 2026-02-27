@@ -4,6 +4,7 @@ package ivpnclient
 type HelloResp struct {
 	CommandBase
 	Version       string
+	ServiceBinary string `json:",omitempty"`
 	ProcessorArch string
 	// NOTE: this is not all fields that IVPN client sends, add more if needed
 }
@@ -124,42 +125,6 @@ func (c *Client) SetTempPrioritizedDns(dnsCfg DnsSettings, description string) e
 		return err
 	}
 	return nil
-}
-
-// BinaryType represents the type of binary integrated into the VPN client package
-type BinaryType int
-
-const (
-	BinaryTypeUnknown   BinaryType = 0
-	BinaryTypeVpnClient BinaryType = 1
-	BinaryTypeProxy     BinaryType = 2
-	BinaryTypeDaemon    BinaryType = 3
-)
-
-type BinaryInfo struct {
-	Name       string
-	Path       string
-	BinaryType BinaryType
-}
-
-type BinariesInfo struct {
-	CommandBase
-	Binaries []BinaryInfo
-}
-
-type GetBinariesInfo struct {
-	RequestBase
-}
-
-// GetBinariesInfo retrieves information about the binaries integrated into the VPN client package,
-// including their names, paths, and types (e.g., VPN client, proxy, daemon).
-func (c *Client) GetBinariesInfo() (BinariesInfo, error) {
-	req := GetBinariesInfo{}
-	var resp BinariesInfo
-	if err := c.SendRecv(&req, &resp); err != nil {
-		return BinariesInfo{}, err
-	}
-	return resp, nil
 }
 
 //

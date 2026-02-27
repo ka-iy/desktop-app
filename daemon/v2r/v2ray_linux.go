@@ -34,7 +34,7 @@ func implInit() {
 }
 
 func (v *V2RayWrapper) implSetMainRoute(defaultGateway net.IP) error {
-	remoteHost, _, err := v.getRemoteEndpoint()
+	remoteHost, _, _, err := v.getRemoteEndpoint()
 	if err != nil {
 		return fmt.Errorf("getting remote endpoint error : %w", err)
 	}
@@ -48,7 +48,7 @@ func (v *V2RayWrapper) implSetMainRoute(defaultGateway net.IP) error {
 }
 
 func (v *V2RayWrapper) implDeleteMainRoute() error {
-	remoteHost, _, err := v.getRemoteEndpoint()
+	remoteHost, _, _, err := v.getRemoteEndpoint()
 	if err != nil {
 		return fmt.Errorf("getting remote endpoint error : %w", err)
 	}

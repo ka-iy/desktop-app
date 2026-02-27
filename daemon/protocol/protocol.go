@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -498,6 +500,10 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		// send back Hello message with account session info
 		helloResponse := p.createHelloResponse()
+		if req.GetServiceBinaryPath {
+			helloResponse.ServiceBinary, _ = os.Executable()
+			helloResponse.ServiceBinary, _ = filepath.EvalSymlinks(helloResponse.ServiceBinary)
+		}
 		p.sendResponse(conn, helloResponse, req.Idx)
 		if req.SendResponseToAllClients {
 			p.notifyClients(helloResponse)
@@ -924,9 +930,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 			// notify current DNS status
 			p.notifyClients(p.createAlternateDNSResponse())
 		}
-	case "GetBinariesInfo":
-		resp := p.createBinariesInfoResponse()
-		p.sendResponse(conn, resp, reqCmd.Idx)
 
 	case "GetDnsPredefinedConfigs":
 		cfgs, err := dns.GetPredefinedDnsConfigurations()

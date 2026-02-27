@@ -193,7 +193,7 @@ type Process interface {
 	// Type just returns VPN type
 	Type() Type
 	// Init performs basic initializations before connection
-	// It is usefull, for example, for WireGuard(Windows) - to ensure that WG service is fully uninstalled
+	// It is useful, for example, for WireGuard(Windows) - to ensure that WG service is fully uninstalled
 	// (currently, in use by WireGuard(Windows))
 	Init() error
 
@@ -208,9 +208,9 @@ type Process interface {
 	SetManualDNS(dnsCfg dns.DnsSettings) error
 	ResetManualDNS() error
 
-	// DestinationIP -  Get destination IP (VPN host server or proxy server IP address)
+	// Destination -  Get destination IP (VPN host server or proxy server IP address)
 	// This information if required, for example, to allow this address in firewall
-	DestinationIP() net.IP
+	Destination() (addr net.IP, port uint16, isTcp bool)
 
 	IsIPv6InTunnel() bool
 

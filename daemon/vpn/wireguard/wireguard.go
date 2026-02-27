@@ -129,10 +129,10 @@ func (wg *WireGuard) GetTunnelName() string {
 	return wg.getTunnelName()
 }
 
-// DestinationIP -  Get destination IP (VPN host server or proxy server IP address)
+// Destination -  Get destination address (VPN host server or proxy server IP address)
 // This information if required, for example, to allow this address in firewall
-func (wg *WireGuard) DestinationIP() net.IP {
-	return wg.connectParams.hostIP
+func (wg *WireGuard) Destination() (addr net.IP, port uint16, isTcp bool) {
+	return wg.connectParams.hostIP, uint16(wg.connectParams.hostPort), false
 }
 func (wg *WireGuard) DefaultDNS() net.IP {
 	if wg.isDisconnected {

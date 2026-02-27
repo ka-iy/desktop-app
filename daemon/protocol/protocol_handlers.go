@@ -23,7 +23,10 @@
 package protocol
 
 import (
+	"net"
+
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	"github.com/ivpn/desktop-app/daemon/wifiNotifier"
@@ -100,4 +103,18 @@ func (p *Protocol) OnSplitTunnelStatusChanged() {
 		return
 	}
 	p.notifyClients(&status)
+}
+
+// OnConnectionStarting is called by the service before a new VPN connection is established.
+// It notifies clients about the upcoming connection and provides details such as the remote
+// address, port, and protocol. This can be useful, for example, for tuning firewall rules
+// before the connection is established.
+func (p *Protocol) OnConnectionStarting(remoteAddress net.IP, remotePort uint16, isTcp bool) {
+	msg := ivpnclient.NewConnectionStarting(remoteAddress.String(), remotePort, isTcp)
+	p.notifyClients(&msg)
+}
+
+// OnConnectionStopped is called by the service when a VPN connection has been stopped.
+func (p *Protocol) OnConnectionStopped() {
+	p.notifyClients(&ivpnclient.ConnectionStopped{})
 }

@@ -690,16 +690,27 @@ func (s *Service) connect(originalEntryServerInfo *svrConnInfo, vpnProc vpn.Proc
 
 	destinationIpAddresses := make([]net.IP, 0)
 	// Add VPN server IP to firewall exceptions
-	destinationIpAddresses = append(destinationIpAddresses, vpnProc.DestinationIP())
+	dstAddr, dstPort, dstIsTCP := vpnProc.Destination()
+	destinationIpAddresses = append(destinationIpAddresses, dstAddr)
 
 	if v2rayWrapper != nil {
 		// Configure firewall to allow V2Ray remote IP
-		v2RayRemoteHost, _, err := v2rayWrapper.GetRemoteEndpoint()
+		v2RayRemoteHost, port, tcp, err := v2rayWrapper.GetRemoteEndpoint()
 		if err != nil {
 			return fmt.Errorf("failed to get V2Ray remote endpoint: %w", err)
 		}
+
+		// overwrite destination address and port by V2Ray remote endpoint
+		dstAddr = v2RayRemoteHost
+		dstPort = uint16(port)
+		dstIsTCP = tcp
+
 		destinationIpAddresses = append(destinationIpAddresses, v2RayRemoteHost)
 	}
+
+	// Notify about starting and stopped connection
+	s._evtReceiver.OnConnectionStarting(dstAddr, dstPort, dstIsTCP)
+	defer s._evtReceiver.OnConnectionStopped()
 
 	// goroutine: process + forward VPN state change
 	connectRoutinesWaiter.Add(1)

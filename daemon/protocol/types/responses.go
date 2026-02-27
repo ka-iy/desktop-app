@@ -123,9 +123,7 @@ type SettingsResp struct {
 
 // HelloResp response on initial request
 type HelloResp struct {
-	CommandBase
-	Version           string
-	ProcessorArch     string
+	ivpnclient.HelloResp
 	Session           SessionResp
 	Account           preferences.AccountStatus
 	DisabledFunctions DisabledFunctionality
