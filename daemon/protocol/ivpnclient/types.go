@@ -130,6 +130,10 @@ type Hello struct {
 
 	// GetServiceBinaryPath == true - client requests the service to send back its binary path
 	GetServiceBinaryPath bool `json:",omitempty"`
+
+	// GetActiveRemoteEndpoint == true - client requests info about current VPN remote endpoint, if any
+	// (real address+port info we connected: vpn, v2ray or obfsproxy endpoint)
+	GetActiveRemoteEndpoint bool `json:",omitempty"`
 }
 
 // Notify clients VPN connection is going to be established

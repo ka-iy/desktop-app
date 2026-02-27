@@ -110,11 +110,30 @@ func (p *Protocol) OnSplitTunnelStatusChanged() {
 // address, port, and protocol. This can be useful, for example, for tuning firewall rules
 // before the connection is established.
 func (p *Protocol) OnConnectionStarting(remoteAddress net.IP, remotePort uint16, isTcp bool) {
-	msg := ivpnclient.NewConnectionStarting(remoteAddress.String(), remotePort, isTcp)
-	p.notifyClients(&msg)
+	RemoteEndpoint := &RemoteEndpoint{
+		Address: remoteAddress,
+		Port:    remotePort,
+		IsTcp:   isTcp,
+	}
+	p._lastVpnRemoteEndpoint.Store(RemoteEndpoint)
+	p.notifyLastConnectionStarting(nil)
 }
 
 // OnConnectionStopped is called by the service when a VPN connection has been stopped.
 func (p *Protocol) OnConnectionStopped() {
+	p._lastVpnRemoteEndpoint.Store(nil)
 	p.notifyClients(&ivpnclient.ConnectionStopped{})
+}
+
+func (p *Protocol) notifyLastConnectionStarting(conn net.Conn) {
+	lastEndpoint := p._lastVpnRemoteEndpoint.Load()
+	if lastEndpoint == nil {
+		return
+	}
+	msg := ivpnclient.NewConnectionStarting(lastEndpoint.Address.String(), lastEndpoint.Port, lastEndpoint.IsTcp)
+	if conn == nil {
+		p.notifyClients(&msg)
+	} else {
+		Send(conn, &msg, 0)
+	}
 }

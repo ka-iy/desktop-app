@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
@@ -158,15 +159,16 @@ func CreateProtocol() (*Protocol, error) {
 	}, nil
 }
 
-type toRestore struct {
-	dnsSettings dns.DnsSettings
-	antitracker service_types.AntiTrackerMetadata
-}
-
 type connectionInfo struct {
 	Type                    ivpnclient.ClientTypeEnum // UI or CLI
 	IsAuthenticated         bool                      // true when connection fully authenticated (secret is OK and EAA check is passed)
 	IsPrioritizedDnsDefined bool                      // true when the connection has defined prioritized DNS settings (e.g. Portmaster custom DNS)
+}
+
+type RemoteEndpoint struct {
+	Address net.IP
+	Port    uint16
+	IsTcp   bool
 }
 
 // Protocol - TCP interface to communicate with IVPN application
@@ -190,6 +192,10 @@ type Protocol struct {
 
 	// keep info about last VPN state
 	_lastVPNState vpn.StateInfo
+	// Keep info about last sent VPN remote endpoint
+	// The real endpoint info of VPN server, obfsproxy or V2Ray server we are connected to.
+	// nil - means that VPN not connected
+	_lastVpnRemoteEndpoint atomic.Pointer[RemoteEndpoint]
 
 	_eaa *eaa.Eaa
 
@@ -308,6 +314,9 @@ func (p *Protocol) processClient(conn net.Conn) {
 		disconnectedClientInfo := p.clientDisconnected(conn)
 		log.Info("Client disconnected: ", conn.RemoteAddr())
 
+		// Just in case of unexpected disconnection of Portmaster client
+		interoperability.PingDetectedApps()
+
 		// If the disconnected client had defined prioritized DNS settings (e.g. Portmaster custom DNS) - remove them from service settings (if any)
 		if disconnectedClientInfo != nil && disconnectedClientInfo.IsPrioritizedDnsDefined {
 			empty := service_types.TempDnsSettings{}
@@ -374,6 +383,8 @@ func (p *Protocol) processClient(conn net.Conn) {
 			// verified
 			secretVerified = true
 			p.clientConnected(conn, hello.ClientType)
+
+			interoperability.PingDetectedApps()
 		}
 
 		// Processing requests from client (in separate routine)
@@ -539,6 +550,10 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		if req.GetAlternateDnsStatus {
 			p.sendResponse(conn, p.createAlternateDNSResponse(), req.Idx)
+		}
+
+		if req.GetActiveRemoteEndpoint {
+			p.notifyLastConnectionStarting(conn)
 		}
 
 	case "ParanoidModeSetPasswordReq":
@@ -1361,9 +1376,7 @@ func (p *Protocol) notifyVpnStateChanged(stateObj *vpn.StateInfo) {
 	switch state.State {
 	case vpn.CONNECTED:
 		p.notifyClients(p.createConnectedResponse(state))
-		interoperability.PingDetectedApps()
 	case vpn.DISCONNECTED:
-		interoperability.PingDetectedApps()
 		// Do not send DISCONNECTED event notification.
 		// It will be sent to the client only after finishing the synchronous function processConnectRequest().
 	default:
