@@ -72,6 +72,18 @@ _splittun_comment="IVPN Split Tunneling"
 # Split Tunnel cgroup id
 _splittun_cgroup_classid=0x4956504e
 
+# Returns the first "-A" rule line of "iptables -S <chain>" output.
+# Skips the "-P" (policy) line which is always printed first.
+# Usage: get_first_chain_rule <iptables_bin> <chain>
+function get_first_chain_rule() {
+    local bin=$1
+    local chain=$2
+    local line
+    while read -r line; do
+        [[ "${line}" == -A* ]] && echo "${line}" && return
+    done < <(${bin} -w ${LOCKWAITTIME} -S "${chain}" 2>/dev/null)
+}
+
 # returns 0 if chain exists
 function chain_exists()
 {
@@ -292,10 +304,21 @@ function enable_firewall {
     # (global -> IVPN_CHAIN -> IVPN_VPN_CHAIN)
     # (global -> IVPN_CHAIN -> IN_IVPN_STAT_EXP)
 
-    # Note! Using "-I" parameter to add IVPN rules on the top of iptables rules sequence
-    ${IPv4BIN} -w ${LOCKWAITTIME} -I OUTPUT -j ${OUT_IVPN}
-    ${IPv4BIN} -w ${LOCKWAITTIME} -I INPUT -j ${IN_IVPN}
-    ${IPv4BIN} -w ${LOCKWAITTIME} -I FORWARD -j ${FORWARD_IVPN}
+    local first_in first_out
+    first_in=$(get_first_chain_rule ${IPv4BIN} INPUT)
+    first_out=$(get_first_chain_rule ${IPv4BIN} OUTPUT)
+    if [[ "${first_in}" == *"PORTMASTER-FILTER"* ]] && [[ "${first_out}" == *"PORTMASTER-FILTER"* ]]; then
+      # Portmaster detected as the first rule in both INPUT and OUTPUT chains. 
+      # We will add IVPN rules after Portmaster rules to avoid conflicts with Portmaster Firewall.
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I OUTPUT 2 -j ${OUT_IVPN}
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I INPUT 2 -j ${IN_IVPN}
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I FORWARD -j ${FORWARD_IVPN} ## PM does not have FORWARD rules, so we can add IVPN FORWARD rule on the top of the sequence
+    else
+      # Note! Using "-I" parameter to add IVPN rules on the top of iptables rules sequence
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I OUTPUT -j ${OUT_IVPN}
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I INPUT -j ${IN_IVPN}
+      ${IPv4BIN} -w ${LOCKWAITTIME} -I FORWARD -j ${FORWARD_IVPN}
+    fi
 
     # Split Tunnel: Allow packets from/to cgroup (bypass IVPN firewall)
     ${IPv4BIN} -w ${LOCKWAITTIME} -I ${OUT_IVPN} -m cgroup --cgroup ${_splittun_cgroup_classid} -m comment --comment  "${_splittun_comment}" -j ACCEPT || echo "Failed to add OUTPUT (cgroup) rule for split-tunnel"
