@@ -509,6 +509,11 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		log.Info(fmt.Sprintf("%sConnected client version: '%s'", p.connLogID(conn), req.Version))
 
+		// Send ActiveRemoteEndpoint info (if any) before HelloResponse
+		if req.GetActiveRemoteEndpoint {
+			p.notifyLastConnectionStarting(conn)
+		}
+
 		// send back Hello message with account session info
 		helloResponse := p.createHelloResponse()
 		if req.GetServiceBinaryPath {
@@ -550,10 +555,6 @@ func (p *Protocol) processRequest(conn net.Conn, message string) {
 
 		if req.GetAlternateDnsStatus {
 			p.sendResponse(conn, p.createAlternateDNSResponse(), req.Idx)
-		}
-
-		if req.GetActiveRemoteEndpoint {
-			p.notifyLastConnectionStarting(conn)
 		}
 
 	case "ParanoidModeSetPasswordReq":

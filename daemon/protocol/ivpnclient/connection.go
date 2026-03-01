@@ -36,7 +36,7 @@ func NewConnection(logger Logger) (*Connection, error) {
 }
 
 // Connect is establishing connection to a daemon and starts receiver routine to receive messages from a daemon
-func (c *Connection) Connect(port uint) (err error) {
+func (c *Connection) Connect(port uint, connectTimeout time.Duration) (err error) {
 	err = func() error {
 		c._mu.Lock()
 		defer c._mu.Unlock()
@@ -46,6 +46,7 @@ func (c *Connection) Connect(port uint) (err error) {
 		}
 
 		dialer := net.Dialer{
+			Timeout:   connectTimeout,
 			LocalAddr: &net.TCPAddr{IP: net.ParseIP("127.0.0.1")},
 		}
 		c._conn, err = dialer.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port))

@@ -142,7 +142,7 @@ func (c *Client) Disconnected() <-chan struct{} {
 
 // Connect establishes connection to a daemon and starts routine to receive messages from a daemon.
 // Note: Hello request must be first to start communication with a daemon
-func (c *Client) Connect() error {
+func (c *Client) Connect(connectTimeout time.Duration) error {
 	err := func() error {
 		c._locker.Lock()
 		defer c._locker.Unlock()
@@ -183,7 +183,7 @@ func (c *Client) Connect() error {
 	c._locker.Unlock()
 
 	// establish connection to a daemon
-	if err := c._conn.Connect(uint(port)); err != nil {
+	if err := c._conn.Connect(uint(port), connectTimeout); err != nil {
 		c.Disconnect()
 		return fmt.Errorf("failed to connect to IVPN daemon: %w", err)
 	}

@@ -133,6 +133,7 @@ type Hello struct {
 
 	// GetActiveRemoteEndpoint == true - client requests info about current VPN remote endpoint, if any
 	// (real address+port info we connected: vpn, v2ray or obfsproxy endpoint)
+	// This info will be send back before HelloResponse
 	GetActiveRemoteEndpoint bool `json:",omitempty"`
 }
 

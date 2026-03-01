@@ -92,7 +92,7 @@ func CreateClient(
 // Connect is connecting to daemon
 func (c *Client) Connect() (err error) {
 	logger.Info("Connecting...")
-	if err := c._client.Connect(); err != nil {
+	if err := c._client.Connect(time.Second * 5); err != nil {
 		return fmt.Errorf("failed to connect to IVPN daemon (does IVPN daemon/service running?): %w", err)
 	}
 	logger.Info("Connected")
