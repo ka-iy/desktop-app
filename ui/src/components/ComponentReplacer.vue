@@ -68,4 +68,17 @@ export default {
   position: relative;
   z-index: 11;
 }
+
+/*
+ * When the overlay IS in the DOM (visible=true, v-if inserts .replacer-root),
+ * suppress all painting of subsequent covered siblings entirely — this
+ * eliminates subpixel-AA fringes, focus rings, and any other artifacts
+ * that would otherwise bleed through or around the overlay.
+ * Siblings marked replacer-above are excluded (they intentionally sit above).
+ * Preceding siblings (e.g. a replacer-above title before the component in
+ * the DOM) are unaffected because ~ only targets subsequent siblings.
+ */
+:global(.replacer-root ~ *:not(.replacer-above)) {
+  visibility: hidden;
+}
 </style>
