@@ -30,7 +30,7 @@ import (
 	"strings"
 
 	apiTypes "github.com/ivpn/desktop-app/daemon/api/types"
-	protocolTypes "github.com/ivpn/desktop-app/daemon/protocol/types"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	"github.com/ivpn/desktop-app/daemon/service/types"
 	"github.com/ivpn/desktop-app/daemon/vpn"
@@ -94,8 +94,8 @@ func (a automaticAction) IsHasAction() bool {
 	return a.Firewall != FW_NoAction || a.Vpn != VPN_NoAction
 }
 
-func (s *Service) OnAuthenticatedClient(t protocolTypes.ClientTypeEnum) {
-	if t != protocolTypes.ClientUi {
+func (s *Service) OnAuthenticatedClient(t ivpnclient.ClientTypeEnum) {
+	if t != ivpnclient.ClientUi {
 		// "auto-connect on app launch" is applicable only for UI client
 		return
 	}
@@ -309,8 +309,7 @@ func (s *Service) autoConnectIfRequired(reason autoConnectReason, wifiInfoPtr *w
 
 func (s *Service) isCanApplyWiFiActions() bool {
 	prefs := s.Preferences()
-	const onlyUiClients = true
-	if !prefs.WiFiControl.CanApplyInBackground && !s._evtReceiver.IsClientConnected(onlyUiClients) {
+	if !prefs.WiFiControl.CanApplyInBackground && !s._evtReceiver.IsMainClientConnected() {
 		// WiFi action not allowed: no UI client connected (CanApplyInBackground == false)
 		return false
 	}

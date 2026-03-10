@@ -27,6 +27,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/ivpn/desktop-app/daemon/interoperability"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 )
 
@@ -43,17 +45,31 @@ func (p *Protocol) connLogID(c net.Conn) string {
 
 // -------------- clients connections ---------------
 // IsClientConnected checks is any authenticated connection available of specific client type
-func (p *Protocol) IsClientConnected(checkOnlyUiClients bool) bool {
+func (p *Protocol) IsClientConnected() bool {
 	p._connectionsMutex.RLock()
 	defer p._connectionsMutex.RUnlock()
 
 	for _, val := range p._connections {
 		if val.IsAuthenticated {
-			if checkOnlyUiClients {
-				if val.Type == types.ClientUi {
-					return true
-				}
-			} else {
+			return true
+		}
+	}
+	return false
+}
+
+// IsMainClientConnected checks is any authenticated connection available of main client type (UI)
+// All the rest client types are considered as additional (e.g. CLI, Portmaster, etc.).
+func (p *Protocol) IsMainClientConnected() bool {
+	return p.isClientConnectedByType(ivpnclient.ClientUi)
+}
+
+func (p *Protocol) isClientConnectedByType(clientType ivpnclient.ClientTypeEnum) bool {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
+
+	for _, val := range p._connections {
+		if val.IsAuthenticated {
+			if val.Type == clientType {
 				return true
 			}
 		}
@@ -64,36 +80,53 @@ func (p *Protocol) IsClientConnected(checkOnlyUiClients bool) bool {
 // IsCanDoBackgroundAction returns 'false' when no background action allowed (e.g. EAA enabled but no authenticated clients connected)
 func (p *Protocol) IsCanDoBackgroundAction() bool {
 	if p._eaa.IsEnabled() {
-		const checkOnlyUiClients = true
-		return p.IsClientConnected(checkOnlyUiClients)
+		return p.IsMainClientConnected()
 	}
 	return true
 }
 
-func (p *Protocol) clientConnected(c net.Conn, cType types.ClientTypeEnum) {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
-	p._connections[c] = connectionInfo{Type: cType}
+func (p *Protocol) clientConnected(c net.Conn, cType ivpnclient.ClientTypeEnum) {
+	func() {
+		p._connectionsMutex.Lock()
+		defer p._connectionsMutex.Unlock()
+		p._connections[c] = &connectionInfo{Type: cType}
+	}()
+
+	interoperability.ClientConnected(cType)
 }
 
-func (p *Protocol) clientDisconnected(c net.Conn) (disconnectedClientInfo *connectionInfo) {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
+func (p *Protocol) clientDisconnected(c net.Conn) *connectionInfo {
+	ret := func() *connectionInfo {
+		p._connectionsMutex.Lock()
+		defer p._connectionsMutex.Unlock()
 
-	if ci, ok := p._connections[c]; ok {
-		disconnectedClientInfo = &ci
-	}
+		var ret *connectionInfo
+		if ci, ok := p._connections[c]; ok {
+			ret = ci
+		}
 
-	delete(p._connections, c)
-	c.Close()
+		delete(p._connections, c)
+		c.Close()
 
-	return disconnectedClientInfo
+		return ret
+	}()
+
+	interoperability.ClientDisconnected(ret.Type)
+
+	return ret
 }
 
 func (p *Protocol) clientsConnectedCount() int {
-	p._connectionsMutex.Lock()
-	defer p._connectionsMutex.Unlock()
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
 	return len(p._connections)
+}
+
+func (p *Protocol) getConnectionInfo(c net.Conn) (cInfo *connectionInfo) {
+	p._connectionsMutex.RLock()
+	defer p._connectionsMutex.RUnlock()
+	cInfo, _ = p._connections[c]
+	return
 }
 
 // Notifying clients "service is going to stop" (client application (UI) will close)
@@ -118,7 +151,7 @@ func (p *Protocol) notifyClientsDaemonExiting() {
 	// erasing clients connections
 	p._connectionsMutex.Lock()
 	defer p._connectionsMutex.Unlock()
-	p._connections = make(map[net.Conn]connectionInfo)
+	p._connections = make(map[net.Conn]*connectionInfo)
 }
 
 func (p *Protocol) clientSetAuthenticated(c net.Conn) {
@@ -131,7 +164,6 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 			if !cInfo.IsAuthenticated {
 				// connected client (first authentication)
 				cInfo.IsAuthenticated = true
-				p._connections[c] = cInfo
 
 				go func() {
 					// notifying service about authenticated client (autoconnect if needed)
@@ -143,9 +175,23 @@ func (p *Protocol) clientSetAuthenticated(c net.Conn) {
 
 	if len(p._lastConnectionErrorToNotifyClient) > 0 {
 		log.Info("Sending delayed error to client: ", p._lastConnectionErrorToNotifyClient)
-		delayedErr := types.ErrorRespDelayed{}
+		delayedErr := ivpnclient.ErrorRespDelayed{}
 		delayedErr.ErrorMessage = p._lastConnectionErrorToNotifyClient
 		p.sendResponse(c, &delayedErr, 0)
 	}
 	p._lastConnectionErrorToNotifyClient = ""
+}
+
+// ensureCanModifyDnsSettings checks if the client connection is allowed to modify DNS settings
+func (p *Protocol) ensureCanModifyDnsSettings(conn net.Conn) error {
+	connInfo := p.getConnectionInfo(conn)
+	if connInfo == nil {
+		return fmt.Errorf("internal error: connection info not found")
+	}
+	// If temporary prioritized DNS settings are already defined by another client - do not allow to modify DNS settings
+	curVal := p._service.GetSettingsTempPrioritizedDNS()
+	if !curVal.IsEmpty() && !connInfo.IsPrioritizedDnsDefined {
+		return fmt.Errorf("%s", curVal.Description)
+	}
+	return nil
 }

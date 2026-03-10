@@ -62,10 +62,11 @@ type ConnectMetadata struct {
 	// How the exit server was chosen ('Fastest' is not applicable for 'Exit' server)
 	ServerSelectionExit ServerSelectionEnum
 
-	AntiTracker AntiTrackerMetadata
-
 	// (only if Fastest server in use) List of fastest servers which must be ignored (only gateway ID in use: e.g."us-tx.wg.ivpn.net" => "us-tx")
 	FastestGatewaysExcludeList []string
+
+	// When defined - it has precedence over ManualDNS and internal DNS settings
+	AntiTracker AntiTrackerMetadata
 }
 
 // Connect request to establish new VPN connection

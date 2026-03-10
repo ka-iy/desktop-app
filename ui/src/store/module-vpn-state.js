@@ -704,8 +704,15 @@ function saveDnsSettings(context, dnsStatus) {
     context.dispatch("settings/antiTracker", null, {
       root: true,
     });
+    context.dispatch("settings/tempPrioritizedDns", null, {
+      root: true,
+    });
     return;
   }
+
+  context.dispatch("settings/tempPrioritizedDns", dnsStatus.TempPrioritizedDns, {
+    root: true,
+  });
 
   // If AntiTracker is disabled - do not save empty AT settings (to keep current AntiTracker configuration. e.g. blocklist)
   context.dispatch("settings/antiTracker", dnsStatus.AntiTrackerStatus, {

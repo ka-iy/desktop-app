@@ -127,7 +127,10 @@ func printDNSState(w *tabwriter.Writer, dnsStatus types.DnsStatus, servers *apit
 		w = tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
 	}
 
-	if dnsStatus.AntiTrackerStatus.Enabled {
+	prio := dnsStatus.TempPrioritizedDns
+	if !prio.IsEmpty() {
+		fmt.Fprintf(w, "DNS\t:\t%v - %v\n", prio.Dns.InfoString(), prio.Description)
+	} else if dnsStatus.AntiTrackerStatus.Enabled {
 		fmt.Fprintf(w, "AntiTracker\t:\t%v\n", GetAntiTrackerStatusText(dnsStatus.AntiTrackerStatus))
 	} else {
 		if dnsStatus.Dns.IsEmpty() {

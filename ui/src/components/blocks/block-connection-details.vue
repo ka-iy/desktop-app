@@ -31,27 +31,28 @@
       :isProgress="firewallIsProgress"
     />
 
-    <!-- ANTITRACKER -->
-    <div class="horizontalLine" />
+    <div v-bind:class="{ lowOpacity: PrioritizedDNS != null }">
+      <div class="horizontalLine" />
 
-    <OnOffButtonControl
-      text="AntiTracker"
-      :onTextClick="onShowAntiTrackerConfig"
-      textClickTooltip="AntiTracker settings"
-      description="Block trackers whilst connected to VPN"
-      :onChecked="antitrackerOnChecked"
-      :isChecked="this.$store.state.settings.antiTracker?.Enabled"
-      :switcherOpacity="
-        !IsConnected ||
-        this.$store.getters['vpnState/isInverseSplitTunnelAnyDns']
-          ? 0.4
-          : 1
-      "
-      :checkedColor="
-        this.$store.state.settings.antiTracker?.Hardcore ? '#77152a' : null
-      "
-      :isProgress="antitrackerIsProgress"
-    />
+      <OnOffButtonControl
+        text="AntiTracker"
+        :onTextClick="onShowAntiTrackerConfig"
+        :textClickTooltip="`AntiTracker settings` + (PrioritizedDNS ? `\n\nNote: ${PrioritizedDNS.Description}` : '')"
+        description="Block trackers whilst connected to VPN"
+        :onChecked="PrioritizedDNS ? onShowAntiTrackerConfig: antitrackerOnChecked"
+        :isChecked="PrioritizedDNS ? false : this.$store.state.settings.antiTracker?.Enabled"
+        :switcherOpacity="
+          !IsConnected ||
+          this.$store.getters['vpnState/isInverseSplitTunnelAnyDns']
+            ? 0.4
+            : 1
+        "
+        :checkedColor="
+          this.$store.state.settings.antiTracker?.Hardcore ? '#77152a' : null
+        "
+        :isProgress="antitrackerIsProgress"
+      />
+    </div>
 
     <!-- PROTOCOL -->
     <div class="horizontalLine" />
@@ -226,6 +227,9 @@ export default {
     },
     IsSplitTunnelEnabled: function () {
       return this.$store.state.vpnState.splitTunnelling?.IsEnabled;
+    },
+    PrioritizedDNS: function () {
+      return this.$store.getters["settings/getPrioritizedDNS"];
     },
   },
 

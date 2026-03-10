@@ -166,6 +166,17 @@ const getDefaultState = () => {
       ],       
     },
 
+    // tempPrioritizedDns
+    tempPrioritizedDns: {
+      Servers: [
+        { Address: "", Encryption: DnsEncryption.None, Template: "" }
+      ],
+      // Description of the temporary prioritized DNS settings (e.g. "Portmaster custom DNS").
+      Description: "",
+      // Description of the issuer of the temporary prioritized DNS settings (e.g. "Portmaster"). 
+      IssuerDescription: ""    
+    },
+
     // firewall
     firewallCfg: {
       userExceptions: "",
@@ -407,6 +418,21 @@ export default {
         };
       }
     },
+
+    tempPrioritizedDns(state, val) {
+      if (val?.Servers?.length <=0) val = null;
+      if (val) {
+        state.tempPrioritizedDns = val;
+      }
+      else {
+        state.tempPrioritizedDns = {
+          Servers: [ { Address: "", Encryption: DnsEncryption.None, Template: "" }],
+          Description: "",
+          IssuerDescription: "",
+        };
+      }
+    },
+
     firewallCfg(state, val) {
       state.firewallCfg = val;
     },
@@ -630,6 +656,13 @@ export default {
 
       return retApps;
     },
+
+    getPrioritizedDNS: (state) => {
+      let prioritizedDns = state.tempPrioritizedDns ?? null;
+      if (prioritizedDns?.Servers?.length <= 0 || !prioritizedDns.Description) return null;
+        return prioritizedDns;
+    },
+
   },
 
   // can be called from renderer
@@ -844,6 +877,10 @@ export default {
     dnsCustomCfg(context, val) {
       context.commit("dnsCustomCfg", val);
     },
+    tempPrioritizedDns(context, val) {
+      context.commit("tempPrioritizedDns", val);
+    },
+
     firewallCfg(context, val) {
       context.commit("firewallCfg", val);
     },

@@ -24,49 +24,10 @@ package types
 
 import (
 	api_types "github.com/ivpn/desktop-app/daemon/api/types"
-	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	service_types "github.com/ivpn/desktop-app/daemon/service/types"
 	"github.com/ivpn/desktop-app/daemon/vpn"
 )
-
-type EmptyReq struct {
-	RequestBase
-}
-
-type ClientTypeEnum int
-
-const (
-	ClientUi  ClientTypeEnum = iota // 0
-	ClientCli ClientTypeEnum = iota // 1
-)
-
-// Hello is an initial request
-type Hello struct {
-	RequestBase
-
-	// connected client type
-	ClientType ClientTypeEnum
-	// connected client version
-	Version string
-
-	Secret uint64
-
-	// when 'true' - send HelloResp to all connected clients
-	SendResponseToAllClients bool
-
-	// GetServersList == true - client requests to send back info about all servers
-	GetServersList bool
-
-	// GetStatus == true - client requests current status (Vpn connection, Firewal... etc.)
-	GetStatus bool
-
-	// GetSplitTunnelStatus == true - client requests configuration of SplitTunnelling
-	GetSplitTunnelStatus bool
-
-	// GetWiFiCurrentState == true - client requests info about current WiFi
-	GetWiFiCurrentState bool
-}
 
 // GetServers request servers list
 type GetServers struct {
@@ -108,7 +69,7 @@ type KillSwitchSetAllowLAN struct {
 
 // KillSwitchSetUserExceptions set ip masks to exclude from firewall blocking rules
 type KillSwitchSetUserExceptions struct {
-	CommandBase
+	RequestBase
 	// Firewall exceptions: comma separated list of IP addresses (masks) in format: x.x.x.x[/xx]
 	UserExceptions     string
 	FailOnParsingError bool
@@ -150,13 +111,6 @@ type SetUserPreferences struct {
 	UserPrefs preferences.UserPreferences
 }
 
-// SetAlternateDns request to set custom DNS
-type SetAlternateDns struct {
-	RequestBase
-	AntiTracker service_types.AntiTrackerMetadata
-	Dns         dns.DnsSettings // If 'AntiTracker' is enabled - his parameter will be ignored
-}
-
 // GetDnsPredefinedConfigs request to get list of predefined DoH/DoT configurations (if exists)
 type GetDnsPredefinedConfigs struct {
 	RequestBase
@@ -185,8 +139,9 @@ type WiFiSettings struct {
 // - for default configuration storage (e.g for CLI)
 // Note: this command can be sent to the client from the daemon also (as a response to ConnectSettingsGet)
 type ConnectSettings struct {
-	RequestBase
-	Params service_types.ConnectionParams
+	CommandBase // can be used as response
+	RequestBase // can be used as request
+	Params      service_types.ConnectionParams
 }
 
 // ConnectSettingsGet request default connection settings

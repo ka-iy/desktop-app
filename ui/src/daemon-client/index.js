@@ -639,6 +639,7 @@ function makeHelloRequest(isSimpleConnect) {
       GetConfigParams: true,
       GetSplitTunnelStatus: true,
       GetWiFiCurrentState: true,
+      GetAlternateDnsStatus: true,
     });
   }
 

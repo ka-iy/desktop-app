@@ -48,7 +48,7 @@ func (v *V2RayWrapper) implSetMainRoute(defaultGateway net.IP) error {
 		return fmt.Errorf("route.exe location not specified")
 	}
 
-	remoteHost, _, err := v.getRemoteEndpoint()
+	remoteHost, _, _, err := v.getRemoteEndpoint()
 	if err != nil {
 		return fmt.Errorf("getting remote endpoint error : %w", err)
 	}
@@ -66,7 +66,7 @@ func (v *V2RayWrapper) implDeleteMainRoute() error {
 		return fmt.Errorf("route.exe location not specified")
 	}
 
-	remoteHost, _, err := v.getRemoteEndpoint()
+	remoteHost, _, _, err := v.getRemoteEndpoint()
 	if err != nil {
 		return fmt.Errorf("getting remote endpoint error : %w", err)
 	}

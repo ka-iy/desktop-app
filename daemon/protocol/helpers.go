@@ -26,6 +26,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/service/dns"
 	"github.com/ivpn/desktop-app/daemon/service/platform"
@@ -42,7 +43,7 @@ func (p *Protocol) createSettingsResponse() *types.SettingsResp {
 		UserPrefs:                   prefs.UserPrefs,
 		WiFi:                        prefs.WiFiControl,
 		IsLogging:                   prefs.IsLogging,
-		AntiTracker:                 p._service.GetAntiTrackerStatus(),
+		AntiTracker:                 p._service.GetSettingsAntiTracker(),
 		// TODO: implement the rest of daemon settings
 	}
 }
@@ -61,9 +62,11 @@ func (p *Protocol) createHelloResponse() *types.HelloResp {
 
 	// send back Hello message with account session info
 	helloResp := types.HelloResp{
-		ParanoidMode:        types.ParanoidModeStatus{IsEnabled: p._eaa.IsEnabled()},
-		Version:             version.Version(),
-		ProcessorArch:       runtime.GOARCH,
+		ParanoidMode: types.ParanoidModeStatus{IsEnabled: p._eaa.IsEnabled()},
+		HelloResp: ivpnclient.HelloResp{
+			Version:       version.Version(),
+			ProcessorArch: runtime.GOARCH,
+		},
 		Session:             types.CreateSessionResp(prefs.Session),
 		Account:             prefs.Account,
 		SettingsSessionUUID: prefs.SettingsSessionUUID,
@@ -89,24 +92,38 @@ func (p *Protocol) createConnectedResponse(state vpn.StateInfo) *types.Connected
 		pausedTillStr = ""
 	}
 
-	manualDns := dns.GetLastManualDNS()
-
 	ret := &types.ConnectedResp{
-		TimeSecFrom1970: state.Time,
-		ClientIP:        state.ClientIP.String(),
-		ClientIPv6:      ipv6,
-		ServerIP:        state.ServerIP.String(),
-		ServerPort:      state.ServerPort,
-		VpnType:         state.VpnType,
-		ExitHostname:    state.ExitHostname,
-		Dns:             types.DnsStatus{Dns: manualDns, AntiTrackerStatus: p._service.GetAntiTrackerStatus()},
-		IsTCP:           state.IsTCP,
-		Mtu:             state.Mtu,
-		V2RayProxy:      state.V2RayProxy,
-		Obfsproxy:       state.Obfsproxy,
-		IsPaused:        p._service.IsPaused(),
-		PausedTill:      pausedTillStr,
+		ConnectedResp: ivpnclient.ConnectedResp{
+			TimeSecFrom1970: state.Time,
+			ClientIP:        state.ClientIP.String(),
+			ClientIPv6:      ipv6,
+			ServerIP:        state.ServerIP.String(),
+			ServerPort:      state.ServerPort,
+			IsTCP:           state.IsTCP,
+			Mtu:             state.Mtu,
+			IsPaused:        p._service.IsPaused(),
+			PausedTill:      pausedTillStr,
+		},
+
+		VpnType:      state.VpnType,
+		ExitHostname: state.ExitHostname,
+		Dns:          p.createDnsStatus(),
+
+		V2RayProxy: state.V2RayProxy,
+		Obfsproxy:  state.Obfsproxy,
 	}
 
 	return ret
+}
+
+func (p *Protocol) createDnsStatus() types.DnsStatus {
+	return types.DnsStatus{
+		Dns:                p._service.GetSettingsManualDNS(),
+		AntiTrackerStatus:  p._service.GetSettingsAntiTracker(),
+		TempPrioritizedDns: p._service.GetSettingsTempPrioritizedDNS(),
+	}
+}
+
+func (p *Protocol) createAlternateDNSResponse() *types.SetAlternateDNSResp {
+	return &types.SetAlternateDNSResp{Dns: p.createDnsStatus()}
 }

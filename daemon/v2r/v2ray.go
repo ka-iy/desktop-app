@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -104,22 +105,23 @@ func (v *V2RayWrapper) GetLocalPort() (port int, isTcp bool, err error) {
 	return p, t, nil
 }
 
-func (v *V2RayWrapper) GetRemoteEndpoint() (host net.IP, port int, err error) {
+func (v *V2RayWrapper) GetRemoteEndpoint() (host net.IP, port int, isTcp bool, err error) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
 	return v.getRemoteEndpoint()
 }
 
-func (v *V2RayWrapper) getRemoteEndpoint() (host net.IP, port int, err error) {
+func (v *V2RayWrapper) getRemoteEndpoint() (host net.IP, port int, isTcp bool, err error) {
 	if v.config == nil {
-		return nil, 0, fmt.Errorf("config is empty")
+		return nil, 0, false, fmt.Errorf("config is empty")
 	}
 
 	host = net.ParseIP(v.config.Outbounds[0].Settings.Vnext[0].Address)
 	port = v.config.Outbounds[0].Settings.Vnext[0].Port
+	isTcp = "tcp" == strings.ToLower(v.config.Outbounds[0].StreamSettings.Network)
 
-	return host, port, nil
+	return host, port, isTcp, nil
 }
 
 func (v *V2RayWrapper) Stop() error {
@@ -377,7 +379,7 @@ func (v *V2RayWrapper) isMainRouteLocalInfAddressChanged() bool {
 // Get IP address of local interface which is in use for communication with V2Ray server
 // (it depends of routing table)
 func (v *V2RayWrapper) getLocalInterfaceIpInUseToAccessServer() (net.IP, error) {
-	remoteHost, _, err := v.getRemoteEndpoint()
+	remoteHost, _, _, err := v.getRemoteEndpoint()
 	if err != nil {
 		return nil, err
 	}

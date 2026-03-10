@@ -1,6 +1,14 @@
 <template>
-  <div>
-    <div class="settingsTitle" tabindex="0">ANTITRACKER SETTINGS</div>
+  <div style="position: relative;">
+    <div class="settingsTitle replacer-above">ANTITRACKER SETTINGS</div>
+
+    <!-- Blocked control info: covers siblings when visible -->
+    <template v-for="prioritizedDns in [$store.getters['settings/getPrioritizedDNS']]" :key="0">
+      <ComponentReplacer :visible="!!prioritizedDns" style="height: 400px;">
+        <div class="settingsBoldFont">{{ prioritizedDns?.Description }}</div>
+        <div class="settingsDescription">{{ prioritizedDns?.IssuerDescription }}</div>
+      </ComponentReplacer>
+    </template>
 
     <div class="defColor" style="margin-bottom: 24px" tabindex="0">
       When AntiTracker is enabled, IVPN blocks ads, malicious websites, and
@@ -70,10 +78,12 @@
 const sender = window.ipcSender;
 
 import linkCtrl from "@/components/controls/control-link.vue";
+import ComponentReplacer from "@/components/ComponentReplacer.vue";
 
 export default {
   components: {
     linkCtrl,
+    ComponentReplacer,
   },
   data: function () {
     return {};

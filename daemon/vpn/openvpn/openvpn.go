@@ -160,13 +160,13 @@ func NewOpenVpnObject(
 		nil
 }
 
-// DestinationIP -  Get destination IPs (VPN host server or proxy server IP address)
+// Destination - Get destination address (VPN host server or proxy server IP address)
 // This information if required, for example, to allow this address in firewall
-func (o *OpenVPN) DestinationIP() net.IP {
-	if o.connectParams.proxyAddress != nil {
-		return o.connectParams.proxyAddress
+func (o *OpenVPN) Destination() (addr net.IP, port uint16, isTcp bool) {
+	if o.obfsProxyParams.Config.IsObfsproxy() {
+		return o.connectParams.hostIP, uint16(o.obfsProxyParams.RemotePort), o.connectParams.tcp
 	}
-	return o.connectParams.hostIP
+	return o.connectParams.hostIP, uint16(o.connectParams.hostPort), o.connectParams.tcp
 }
 
 // Type just returns VPN type

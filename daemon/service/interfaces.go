@@ -84,10 +84,20 @@ type IServiceEventsReceiver interface {
 	OnVpnStateChanged(state vpn.StateInfo)
 	OnVpnPauseChanged()
 
+	// OnConnectionStarting is called by the service before a new VPN connection is established.
+	// It notifies clients about the upcoming connection and provides details such as the remote
+	// address, port, and protocol. This can be useful, for example, for tuning firewall rules
+	// before the connection is established.
+	OnConnectionStarting(remoteAddress net.IP, remotePort uint16, isTcp bool)
+	// OnConnectionStopped is called by the service when a VPN connection has been stopped.
+	OnConnectionStopped()
+
 	// called by a service when new connection is required (e.g. requested by 'trusted-wifi' functionality or 'auto-connect' on launch)
 	RegisterConnectionRequest(params service_types.ConnectionParams) error
-	// IsClientConnected checks is any authenticated connection available of specific client type
-	IsClientConnected(checkOnlyUiClients bool) bool
+	// IsClientConnected checks is any authenticated connection available
+	IsClientConnected() bool
+	// IsMainClientConnected checks is any authenticated connection available of main client type (UI)
+	IsMainClientConnected() bool
 	// IsCanDoBackgroundAction returns 'false' when no background action allowed (e.g. EAA enabled but no authenticated clients connected)
 	IsCanDoBackgroundAction() bool
 }

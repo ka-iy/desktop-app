@@ -22,6 +22,10 @@
 
 package types
 
+import (
+	"github.com/ivpn/desktop-app/daemon/service/dns"
+)
+
 type KillSwitchStatus struct {
 	IsEnabled         bool   // FW state
 	IsPersistent      bool   // configuration: true - when persistent
@@ -31,4 +35,25 @@ type KillSwitchStatus struct {
 	UserExceptions    string // configuration: Firewall exceptions: comma separated list of IP addresses (masks) in format: x.x.x.x[/xx]
 
 	StateLanAllowed bool // real state of 'Allow LAN'
+}
+
+type TempDnsSettings struct {
+	Dns dns.DnsSettings
+	// Description of the temporary prioritized DNS settings (e.g. "Portmaster custom DNS").
+	// To be displayed in the UI to provide additional context to the user about the active DNS configuration.
+	Description string
+	// Description of the issuer of the temporary prioritized DNS settings (e.g. "Portmaster").
+	// To be displayed in the UI to provide additional context to the user about the active DNS configuration.
+	IssuerDescription string
+}
+
+func (f TempDnsSettings) IsEmpty() bool {
+	return f.Dns.IsEmpty()
+}
+
+func (f TempDnsSettings) Equal(x TempDnsSettings) bool {
+	if f.Description != x.Description {
+		return false
+	}
+	return f.Dns.Equal(x.Dns)
 }
