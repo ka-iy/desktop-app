@@ -166,6 +166,7 @@
                           style="cursor: pointer; width: 24px; height: 22px; opacity: 0"
                           @change="applyPredefinedConfig($event.target.value, svr)"
                         >
+                          <option value="" disabled selected hidden></option>
                           <option
                             v-for="m in predefinedDohConfigs"
                             v-bind:key="m.DohTemplate + m.DnsHost"                            
