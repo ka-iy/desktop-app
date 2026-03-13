@@ -1513,7 +1513,7 @@ div.trialWillExpire button {
   border-radius: 8px;
   position: absolute;
 
-  margin-top: 24px; // 15 arrow + 9
+  margin-top: 23px; // 15 arrow + 8
 
   min-width: 270px;
   max-width: 270px;
@@ -1527,7 +1527,7 @@ div.trialWillExpire button {
 .popup .popuptext::after {
   content: "";
   position: absolute;
-  top: -30px;
+  top: -28px;
   margin-left: -15px;
   border-width: 15px;
   border-style: solid;
