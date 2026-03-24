@@ -82,6 +82,7 @@ function get_first_chain_rule() {
     while read -r line; do
         [[ "${line}" == -A* ]] && echo "${line}" && return
     done < <(${bin} -w ${LOCKWAITTIME} -S "${chain}" 2>/dev/null)
+    return 0
 }
 
 # returns 0 if chain exists
