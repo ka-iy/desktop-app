@@ -1,5 +1,13 @@
 package ivpnclient
 
+// VpnType - VPN type
+type VpnType int
+
+const (
+	OpenVPN   VpnType = 0
+	WireGuard VpnType = 1
+)
+
 //
 // Command Base
 //

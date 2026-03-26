@@ -224,7 +224,6 @@ type DnsPredefinedConfigsResp struct {
 type ConnectedResp struct {
 	ivpnclient.ConnectedResp
 
-	VpnType      vpn.Type
 	ExitHostname string // multi-hop exit hostname (e.g. "us-tx1.wg.ivpn.net")
 	Dns          DnsStatus
 	V2RayProxy   v2r.V2RayTransportType // applicable only for 'CONNECTED' state

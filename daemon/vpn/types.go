@@ -38,8 +38,8 @@ type Type int
 
 // Supported VPN protocols
 const (
-	OpenVPN   Type = iota
-	WireGuard Type = iota
+	OpenVPN   Type = 0
+	WireGuard Type = 1
 )
 
 func (t Type) String() string {

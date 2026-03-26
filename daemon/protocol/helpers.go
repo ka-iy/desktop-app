@@ -103,9 +103,9 @@ func (p *Protocol) createConnectedResponse(state vpn.StateInfo) *types.Connected
 			Mtu:             state.Mtu,
 			IsPaused:        p._service.IsPaused(),
 			PausedTill:      pausedTillStr,
+			VpnType:         ivpnclient.VpnType(state.VpnType),
 		},
 
-		VpnType:      state.VpnType,
 		ExitHostname: state.ExitHostname,
 		Dns:          p.createDnsStatus(),
 
