@@ -33,6 +33,7 @@ import (
 	"github.com/ivpn/desktop-app/cli/cliplatform"
 	"github.com/ivpn/desktop-app/cli/protocol"
 	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/protocol/types"
 	"github.com/ivpn/desktop-app/daemon/splittun"
 	"github.com/ivpn/desktop-app/daemon/v2r"
@@ -94,7 +95,7 @@ func printState(w *tabwriter.Writer, state vpn.State, connected types.ConnectedR
 	protocol := fmt.Sprintf("%v", connected.VpnType)
 	if connected.V2RayProxy != v2r.None {
 		protocol += fmt.Sprintf(" (V2Ray: VMESS/%s)", connected.V2RayProxy.ToString())
-	} else if connected.VpnType == vpn.OpenVPN {
+	} else if connected.VpnType == ivpnclient.OpenVPN {
 		if connected.Obfsproxy.IsObfsproxy() {
 			protocol += fmt.Sprintf(" (Obfsproxy: %s)", connected.Obfsproxy.ToString())
 		}

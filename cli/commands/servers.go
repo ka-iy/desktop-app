@@ -30,6 +30,7 @@ import (
 	"text/tabwriter"
 
 	apitypes "github.com/ivpn/desktop-app/daemon/api/types"
+	"github.com/ivpn/desktop-app/daemon/protocol/ivpnclient"
 	"github.com/ivpn/desktop-app/daemon/vpn"
 
 	"github.com/ivpn/desktop-app/cli/flags"
@@ -239,15 +240,15 @@ func getVpnTypeByFlag(proto string) (t vpn.Type, err error) {
 }
 
 func serversList(servers apitypes.ServersInfoResponse) []serverDesc {
-	svrs := serversListByVpnType(servers, vpn.WireGuard)
-	svrs = append(svrs, serversListByVpnType(servers, vpn.OpenVPN)...)
+	svrs := serversListByVpnType(servers, ivpnclient.WireGuard)
+	svrs = append(svrs, serversListByVpnType(servers, ivpnclient.OpenVPN)...)
 	return svrs
 }
 
-func serversListByVpnType(servers apitypes.ServersInfoResponse, t vpn.Type) []serverDesc {
+func serversListByVpnType(servers apitypes.ServersInfoResponse, t ivpnclient.VpnType) []serverDesc {
 
 	var ret []serverDesc
-	if t == vpn.WireGuard {
+	if t == ivpnclient.WireGuard {
 		ret = make([]serverDesc, 0, len(servers.WireguardServers))
 
 		for _, s := range servers.WireguardServers {
