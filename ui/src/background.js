@@ -70,6 +70,7 @@ let win;
 let settingsWindow;
 let updateWindow;
 let isAppReadyToQuit = false;
+let _reconnectTimer = null; // timer for reconnecting to daemon after connection loss
 
 let isTrayInitialized = false;
 let lastRouteArgs = null; // last route arguments (requested by renderer process when window initialized)
@@ -951,34 +952,61 @@ function closeUpdateWindow() {
   updateWindow.destroy(); // close();
 }
 
+var _firstDaemonConnectionTime = null; // tracks the time of the first attempt to connect to the daemon
+var _macosStartAttempted = false; // tracks whether TryStartDaemon() was already called once
+
 // INITIALIZE CONNECTION TO A DAEMON
-async function connectToDaemon(
-  doNotTryToInstall,
-  isCanRetry,
-  doNotTryToMacosStart
-) {
+async function connectToDaemon() {
+  
+  // helper functions
+  const scheduleReconnect = (timeout) => {
+    if (isAppReadyToQuit || _reconnectTimer || store.state.daemonIsOldVersionError === true) return;
+    if (!timeout) {
+      // During the initial connection phase (first 15 seconds), reconnect quickly to pick up
+      // the daemon as soon as it starts. After that, fall back to a slower retry cadence.
+      const elapsed = _firstDaemonConnectionTime ? new Date() - _firstDaemonConnectionTime : 0;
+      timeout = elapsed < 15 * 1000 ? 500 : 2000;
+    }
+    _reconnectTimer = setTimeout(() => {
+      console.log("Reconnecting to IVPN Daemon...");
+      _reconnectTimer = null;
+      connectToDaemon();
+    }, timeout);
+  };
+  const cancelReconnectTimer = () => {
+    if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
+  };
+  const onDaemonDisconnected = () => {
+    store.commit("daemonConnectionState", DaemonConnectionType.NotConnected);
+    scheduleReconnect();
+  };
+
+  let isFirstRun = !_firstDaemonConnectionTime;
+
+  _firstDaemonConnectionTime = _firstDaemonConnectionTime || new Date();
+  if (new Date() - _firstDaemonConnectionTime > 16*1000) {
+    // if we were waiting for daemon connection after it was installed for more than 16 seconds 
+    // - reset installation message, user will see NotConnected status 
+    store.commit("daemonIsInstalling", false);  
+  }
+
   // MACOS ONLY: install daemon (privileged helper) if required
-  if (Platform() === PlatformEnum.macOS && doNotTryToInstall !== true) {
+  if (Platform() === PlatformEnum.macOS && isFirstRun) {
     darwinDaemonInstaller.InstallDaemonIfRequired(
+      // onInstallationStarted:
       () => {
         console.log("Installing daemon...");
         store.commit("daemonIsInstalling", true);
-      }, //onInstallationStarted,
+      }, 
+      // onInstallationFinished:
       (exitCode) => {
         // check if we still need to install helper
         darwinDaemonInstaller.IsDaemonInstallationRequired((code) => {
           if (code == 0) {
             // error: the helper not installed (we still detecting that helper must be installed (code == 0))
-            console.error(
-              `Error installing helper [code1: ${exitCode}, code2: ${code}]`
-            );
-
+            console.error(`Error installing helper [code1: ${exitCode}, code2: ${code}]`);
             // set daemon state 'NotConnected'
-            store.commit(
-              "daemonConnectionState",
-              DaemonConnectionType.NotConnected
-            );
-
+            store.commit("daemonConnectionState", DaemonConnectionType.NotConnected);
             // do not forget to notify that daemon installation is finished
             store.commit("daemonIsInstalling", false);
             // Skip connection to daemon
@@ -987,87 +1015,54 @@ async function connectToDaemon(
 
           // daemon installation not required. Connecting to daemon...
 
-          // force UI to show 'connecting' state
-          store.commit(
-            "daemonConnectionState",
-            DaemonConnectionType.Connecting
-          );
-
           // show/activate application window
           // (it can happen that app window is overlapped by another windows on a current moment)
           if (store.state.settings.minimizeToTray != true) menuOnShow();
 
           // wait some time to give Daemon chance to fully start
-          setTimeout(async () => {
-            // do not forget to notify that daemon installation is finished
-            store.commit("daemonIsInstalling", false);
-
-            // if success - try to connect to daemon with possibility to retry (wait until daemon start)
-            // (doNotTryToInstall=true, isCanRetry=true)
-            if (exitCode == 0)
-              await connectToDaemon(true, true, doNotTryToMacosStart);
-            else await connectToDaemon(true, false, doNotTryToMacosStart);
-          }, 500);
+          cancelReconnectTimer();
+          scheduleReconnect();
         });
-      } //onInstallationFinished
+      }
     );
     return;
   }
 
-  let setConnState = function (state) {
-    setTimeout(() => store.commit("daemonConnectionState", state), 0);
-  };
+  // Cancel any pending reconnect timer (e.g., if called manually while a timer is pending)
+  cancelReconnectTimer();
 
-  let onSetConnState = function (state) {
-    // do not set 'NotConnected' state if we still trying to reconnect
-    if (
-      state === DaemonConnectionType.NotConnected &&
-      store.state.daemonConnectionState !== DaemonConnectionType.Connected
-    )
+  try {
+    await daemonClient.ConnectToDaemon(onDaemonDisconnected, onDaemonExiting);
+
+    // initialize app updater
+    StartUpdateChecker(OnAppUpdateAvailable);
+
+    store.commit("daemonConnectionState", DaemonConnectionType.Connected);
+    store.commit("daemonIsInstalling", false);
+    // Connection is live. When the socket closes unexpectedly,
+    // onDisconnected() will fire and scheduleReconnect() will be called.
+  } catch (e) {
+    // MACOS ONLY: try to start daemon (privileged helper) – only once
+    if (Platform() === PlatformEnum.macOS && !_macosStartAttempted) {
+      _macosStartAttempted = true;
+      darwinDaemonInstaller.TryStartDaemon();
+      // Wait briefly for the daemon to start, then retry.
+      cancelReconnectTimer();
+      scheduleReconnect();
       return;
-
-    store.commit("daemonConnectionState", state);
-  };
-
-  setConnState(DaemonConnectionType.Connecting);
-  let connect = async function (retryNo) {
-    try {
-      await daemonClient.ConnectToDaemon(onSetConnState, onDaemonExiting);
-
-      // initialize app updater
-      StartUpdateChecker(OnAppUpdateAvailable);
-
-      setConnState(DaemonConnectionType.Connected);
-    } catch (e) {
-      // MACOS ONLY: try to start daemon (privileged helper)
-      if (Platform() === PlatformEnum.macOS && doNotTryToMacosStart != true) {
-        darwinDaemonInstaller.TryStartDaemon();
-        // wait some time to give Daemon chance to fully start
-        setTimeout(async () => {
-          // if success - try to connect to daemon with possibility to retry (wait until daemon start)
-          // (doNotTryToInstall=true, isCanRetry=true, doNotTryToMacosStart=true)
-          await connectToDaemon(true, true, true);
-        }, 500);
-        return;
-      }
-
-      if (
-        e.unsupportedDaemonVersion === true ||
-        isCanRetry != true ||
-        retryNo > 15
-      ) {
-        setConnState(DaemonConnectionType.NotConnected);
-      } else {
-        // force UI to show 'connecting' state
-        setConnState(DaemonConnectionType.Connecting);
-        console.log(`Connecting to IVPN Daemon (retry #${retryNo}) ...`);
-        setTimeout(async () => {
-          await connect(retryNo + 1);
-        }, 1000);
-      }
     }
-  };
-  connect(1);
+
+    store.commit("daemonConnectionState", DaemonConnectionType.NotConnected);
+
+    if (e.unsupportedDaemonVersion === true) {
+      // Unsupported version requires an app update — do not retry.
+      cancelReconnectTimer();
+      return;
+    }
+
+    // Connection failed (e.g., daemon not running yet). Schedule a reconnect.
+    scheduleReconnect();
+  }
 }
 
 function showSettings(settingsViewName) {

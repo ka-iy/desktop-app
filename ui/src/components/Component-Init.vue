@@ -1,15 +1,16 @@
 <template>
   <div class="flexColumn">
-    <spinner :loading="isProcessing" />
+    <spinner :loading="spinnerVisible" />
 
-    <div v-if="isInitialization" class="main small_text"></div>
-    <div class="main" v-else-if="isDaemonInstalling">
+    <div class="main" v-if="isDaemonInstalling">
       Installing IVPN Daemon ...
       <div class="small_text" style="margin-top: 10px">
         Please follow the instructions in the dialog
       </div>
     </div>
-    <div v-else-if="isConnecting" class="main small_text">Connecting ...</div>
+
+    <div v-else-if="isInitialization" class="main small_text"></div>
+
     <div v-else class="flexColumn">
       <div class="main">
         <div class="large_text">Error connecting to IVPN daemon</div>
@@ -63,30 +64,19 @@
 </template>
 
 <script>
+
 import spinner from "@/components/controls/control-spinner.vue";
 import { Platform, PlatformEnum } from "@/platform/platform";
-import { DaemonConnectionType } from "@/store/types";
-const sender = window.ipcSender;
 import config from "@/config";
 
+const sender = window.ipcSender;
+
 export default {
-  components: {
-    spinner,
-  },
+  components: { spinner, },
   data: function () {
-    return {
-      isProcessing: false,
-      isDelayElapsedAfterMount: false,
-    };
+    return { };
   },
-  mounted() {
-    // In order to avoid text blinking, we are showing blank view first few seconds
-    // untill 'daemonConnectionState' will not be initialised.
-    // The blank view also will be visible first few seconds even after 'daemonConnectionState' was intialized by 'Connecting'
-    setTimeout(() => {
-      this.isDelayElapsedAfterMount = true;
-    }, 3000);
-  },
+  mounted() { },
   methods: {
     async ConnectToDaemon() {
       try {
@@ -107,18 +97,10 @@ export default {
       return this.$store.state.daemonIsInstalling;
     },
     isInitialization: function () {
-      return (
-        (this.$store.state.daemonConnectionState == null &&
-          !this.isDaemonInstalling &&
-          this.isDelayElapsedAfterMount == false) ||
-        (this.isConnecting && this.isDelayElapsedAfterMount == false)
-      );
+      return this.$store.state.daemonConnectionState == null;
     },
-    isConnecting: function () {
-      return (
-        this.$store.state.daemonConnectionState ===
-        DaemonConnectionType.Connecting
-      );
+    spinnerVisible: function () {
+      return this.isDaemonInstalling && this.$store.state.daemonConnectionState != null;
     },
     minRequiredVer: function () {
       return config.MinRequiredDaemonVer;
@@ -131,11 +113,6 @@ export default {
     },
     isMacOS: function () {
       return Platform() === PlatformEnum.macOS;
-    },
-  },
-  watch: {
-    isConnecting() {
-      this.isProcessing = this.isConnecting;
     },
   },
 };
@@ -186,8 +163,16 @@ export default {
   line-height: 20px;
   text-align: center;
   letter-spacing: -0.4px;
-  color: #6d849a;
+  color: #556574; // #6d849a;
 
   cursor: pointer;
+  opacity: 0.8;
+}
+.btn:hover {
+  opacity: 1;
+  border-color: #5a7a94;
+}
+.btn:active {
+  opacity: 0.75;
 }
 </style>
