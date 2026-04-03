@@ -24,8 +24,10 @@ type ParanoidModeSecretRequestFunc func() (secret string, isPlainText bool, err 
 
 // Client is a main object for communication with IVPN daemon.
 type Client struct {
+	_localPort atomic.Uint32
+	_secret    atomic.Uint64
+
 	_locker     sync.RWMutex
-	_secret     uint64
 	_clientInfo ClientInfo
 
 	_paranoidModeSecret            string
@@ -140,6 +142,26 @@ func (c *Client) Disconnected() <-chan struct{} {
 	return conn.Disconnected()
 }
 
+// GetConnectionPortInfo returns port and secret to be able to connect to a daemon.
+func GetConnectionPortInfo() (port int, secret uint64, err error) {
+	// get connection file location
+	portFile, _, err := getConnectionFiles()
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get connection file info: %w", err)
+	}
+	// read connection info to be able to connect to a daemon
+	port, secret, err = readDaemonPort(portFile)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read daemon connection info: %w", err)
+	}
+	return port, secret, nil
+}
+
+// GetLocalPort returns local port, which is used to connect to a daemon.
+func (c *Client) GetLocalPort() uint32 {
+	return c._localPort.Load()
+}
+
 // Connect establishes connection to a daemon and starts routine to receive messages from a daemon.
 // Note: Hello request must be first to start communication with a daemon
 func (c *Client) Connect(connectTimeout time.Duration) error {
@@ -162,25 +184,13 @@ func (c *Client) Connect(connectTimeout time.Duration) error {
 		return err
 	}
 
-	// get connection file location
-	portFile, _, err := getConnectionFiles()
+	port, secret, err := GetConnectionPortInfo()
 	if err != nil {
-		return fmt.Errorf("failed to get connection file info: %w", err)
-	}
-	// read connection info to be able to connect to a daemon
-	var (
-		port   int
-		secret uint64
-	)
-
-	port, secret, err = readDaemonPort(portFile)
-	if err != nil {
-		return fmt.Errorf("failed to read daemon connection info: %w", err)
+		return err
 	}
 
-	c._locker.Lock()
-	c._secret = secret
-	c._locker.Unlock()
+	c._localPort.Store(uint32(port))
+	c._secret.Store(secret)
 
 	// establish connection to a daemon
 	if err := c._conn.Connect(uint(port), connectTimeout); err != nil {
@@ -235,7 +245,7 @@ func (c *Client) SendRecvAnyEx(request IRequestBase, ignoreResponseIndex bool, w
 func (c *Client) InitHelloRequest() Hello {
 	version := strings.ReplaceAll(strings.TrimSpace(c._clientInfo.Version), ":", " ") + ":" + strings.ReplaceAll(strings.TrimSpace(c._clientInfo.Name), ":", " ")
 	return Hello{
-		Secret:     c._secret,
+		Secret:     c._secret.Load(),
 		ClientType: c._clientInfo.Type,
 		GetStatus:  true,
 		Version:    version,
