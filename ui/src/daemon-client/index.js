@@ -702,11 +702,20 @@ async function convertAndSyncOldSettings() {
   }
 }
 
-async function startNotifyDaemonOnParamsChange() {
+var _unsubscribeNotifyDaemonOnParamsChange = null; // unsubscribe function for the store subscriber
+
+async function startNotifyDaemonOnParamsChange() {  
+  // Unsubscribe any previously registered subscriber to avoid accumulating
+  // duplicate subscribers across reconnects.
+  if (_unsubscribeNotifyDaemonOnParamsChange) {
+    _unsubscribeNotifyDaemonOnParamsChange();
+    _unsubscribeNotifyDaemonOnParamsChange = null;
+  }
+
   var timerNotifyDaemonOnParamsChange = null;
 
   // subscribe to changes in a store
-  store.subscribe((mutation) => {
+  _unsubscribeNotifyDaemonOnParamsChange = store.subscribe((mutation) => {
     try {
       switch (mutation.type) {
         case "settings/serverEntry":
