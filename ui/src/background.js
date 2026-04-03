@@ -70,7 +70,13 @@ let win;
 let settingsWindow;
 let updateWindow;
 let isAppReadyToQuit = false;
+
+// Variables related to daemon reconnection logic:
 let _reconnectTimer = null; // timer for reconnecting to daemon after connection loss
+let _daemonConnectionCallbackGeneration = 0; // used to ignore disconnect notifications from stale socket connections replaced by newer connect attempts
+let _isConnectingInProgress = false; // used to prevent multiple parallel connection attempts to daemon
+let _firstDaemonConnectionTime = null; // tracks the time of the first attempt to connect to the daemon
+let _macosStartAttempted = false; // tracks whether TryStartDaemon() was already called once
 
 let isTrayInitialized = false;
 let lastRouteArgs = null; // last route arguments (requested by renderer process when window initialized)
@@ -952,9 +958,6 @@ function closeUpdateWindow() {
   updateWindow.destroy(); // close();
 }
 
-var _firstDaemonConnectionTime = null; // tracks the time of the first attempt to connect to the daemon
-var _macosStartAttempted = false; // tracks whether TryStartDaemon() was already called once
-
 // INITIALIZE CONNECTION TO A DAEMON
 async function connectToDaemon() {
   
@@ -977,6 +980,8 @@ async function connectToDaemon() {
     if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
   };
   const onDaemonDisconnected = () => {
+    // Ignore disconnect notifications from stale sockets replaced by newer connect attempts.
+    if (callbackGeneration !== _daemonConnectionCallbackGeneration) return;
     store.commit("daemonConnectionState", DaemonConnectionType.NotConnected);
     scheduleReconnect();
   };
@@ -1031,6 +1036,11 @@ async function connectToDaemon() {
   // Cancel any pending reconnect timer (e.g., if called manually while a timer is pending)
   cancelReconnectTimer();
 
+  if (_isConnectingInProgress) return;
+  _isConnectingInProgress = true;
+  
+  const callbackGeneration = ++_daemonConnectionCallbackGeneration;
+
   try {
     await daemonClient.ConnectToDaemon(onDaemonDisconnected, onDaemonExiting);
 
@@ -1062,6 +1072,8 @@ async function connectToDaemon() {
 
     // Connection failed (e.g., daemon not running yet). Schedule a reconnect.
     scheduleReconnect();
+  } finally {
+    _isConnectingInProgress = false;
   }
 }
 
