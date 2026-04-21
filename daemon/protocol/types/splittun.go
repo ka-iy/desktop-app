@@ -82,6 +82,8 @@ type SplitTunnelGetStatus struct {
 type SplitTunnelStatus struct {
 	CommandBase
 
+	// NoFuncReason, when not empty, contains the description why Split-Tunneling functionality is not applicable/disabled
+	NoFuncReason     string
 	IsEnabled        bool // is ST enabled
 	IsInversed       bool // Inverse Split Tunnel (only 'splitted' apps use VPN tunnel)
 	IsAnyDns         bool // (only for Inverse Split Tunnel) When false: Allow only DNS servers specified by the IVPN application

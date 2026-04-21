@@ -96,6 +96,7 @@ type Service interface {
 	SetConnectionParams(params service_types.ConnectionParams) error
 	SetWiFiSettings(params preferences.WiFiParams) error
 
+	SplitTunnelling_SetDisabledReason(reason string)
 	SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isAllowWhenNoVpn, reset bool) error
 	SplitTunnelling_GetStatus() (types.SplitTunnelStatus, error)
 	SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error)

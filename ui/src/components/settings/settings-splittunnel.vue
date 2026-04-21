@@ -1,6 +1,12 @@
 <template>
-  <div class="flexColumn">
+  <div class="flexColumn" style="position: relative;">
     <div class="settingsTitle flexRow" tabindex="0">SPLIT TUNNEL SETTINGS</div>
+
+    <!-- Blocked control info: covers siblings when visible -->    
+    <ComponentReplacer :visible="!!NoFuncReason" style="height: 400px;">
+      <div class="settingsBoldFont">Split Tunnel Disabled</div>
+      <div class="settingsDescription">{{ NoFuncReason }}</div>
+    </ComponentReplacer>
 
     <!-- SELECT apps 'popup' view -->
     <div ref="appsListParent" class="flexRow" style="position: relative">
@@ -413,6 +419,7 @@ import binaryInfoControl from "@/components/controls/control-app-binary-info.vue
 
 import spinner from "@/components/controls/control-spinner.vue";
 import linkCtrl from "@/components/controls/control-link.vue";
+import ComponentReplacer from "@/components/ComponentReplacer.vue";
 
 function processError(e) {
   let errMes = e.toString();
@@ -437,6 +444,7 @@ export default {
     binaryInfoControl,
     ComponentDialog,
     linkCtrl,
+    ComponentReplacer,
   },
 
   data: function () {
@@ -876,6 +884,10 @@ Do you want to enable Inverse mode for Split Tunnel?",
 
     isSplitTunnelInverseSupported() {
       return this.$store.getters["isSplitTunnelInverseEnabled"];
+    },
+
+    NoFuncReason: function () {
+      return this.$store.state.vpnState.splitTunnelling?.NoFuncReason;
     },
 
     // needed for 'watch'

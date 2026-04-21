@@ -93,9 +93,15 @@ func (p *Protocol) clientConnected(c net.Conn, cType ivpnclient.ClientTypeEnum) 
 	}()
 
 	interoperability.ClientConnected(cType)
+
+	if cType == ivpnclient.ClientPortmaster {
+		p._service.SplitTunnelling_SetDisabledReason("Split Tunnel functionality is currently disabled for compatibility with Portmaster, which has been detected as running on this system.")
+	}
 }
 
 func (p *Protocol) clientDisconnected(c net.Conn) *connectionInfo {
+	isPortmasterConnected := false
+
 	ret := func() *connectionInfo {
 		p._connectionsMutex.Lock()
 		defer p._connectionsMutex.Unlock()
@@ -108,10 +114,21 @@ func (p *Protocol) clientDisconnected(c net.Conn) *connectionInfo {
 		delete(p._connections, c)
 		c.Close()
 
+		for _, val := range p._connections {
+			if val.Type == ivpnclient.ClientPortmaster {
+				isPortmasterConnected = true
+				break
+			}
+		}
+
 		return ret
 	}()
 
 	interoperability.ClientDisconnected(ret.Type)
+
+	if !isPortmasterConnected {
+		p._service.SplitTunnelling_SetDisabledReason("")
+	}
 
 	return ret
 }

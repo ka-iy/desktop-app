@@ -165,6 +165,20 @@ function detectDefRouteVars()
     fi
 }
 
+# Returns the first "-A" rule line of "iptables -S <chain>" output.
+# Skips the "-P" (policy) line which is always printed first.
+# Usage: get_first_chain_rule <iptables_bin> <chain> <table>
+function get_first_chain_rule() {
+    local bin=$1
+    local chain=$2
+    local table=$3
+    local line
+    while read -r line; do
+        [[ "${line}" == -A* ]] && echo "${line}" && return
+    done < <(${bin} -w ${_iptables_locktime} -S "${chain}" -t "${table}" 2>/dev/null)
+    return 0
+}
+
 function init_iptables() 
 {    
     local bin_iptables=$1
@@ -238,11 +252,27 @@ function init_iptables()
     ${bin_iptables} -w ${_iptables_locktime} -I ${PREROUTING_mangle} -j CONNMARK --restore-mark
 
     ${bin_iptables} -w ${_iptables_locktime} -I POSTROUTING -t mangle  -j ${POSTROUTING_mangle}
-    ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -t mangle  -j ${OUTPUT_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -I PREROUTING -t mangle  -j ${PREROUTING_mangle}
     ${bin_iptables} -w ${_iptables_locktime} -I POSTROUTING -t nat  -j ${POSTROUTING_nat}
-    ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -j ${OUTPUT}
-    ${bin_iptables} -w ${_iptables_locktime} -I INPUT -j ${INPUT}
+
+    # Registering main INPUT/OUTPUT chains (with compatibility for Portmaster Firewall, if it is used on the system)
+    
+    local filter_first_in filter_first_out mangle_first_out
+    filter_first_in=$(get_first_chain_rule ${_bin_iptables} INPUT filter)
+    filter_first_out=$(get_first_chain_rule ${_bin_iptables} OUTPUT filter)
+    mangle_first_out=$(get_first_chain_rule ${_bin_iptables} OUTPUT mangle)
+
+    if [[ "${filter_first_in}" == *"PORTMASTER-FILTER"* ]] && [[ "${filter_first_out}" == *"PORTMASTER-FILTER"* ]] && [[ "${mangle_first_out}" == *"PORTMASTER-"* ]]; then
+      # Portmaster detected as the first rules in chains. 
+      # We will add IVPN rules after Portmaster rules to avoid conflicts with Portmaster Firewall.
+      ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT 2 -t mangle  -j ${OUTPUT_mangle}
+      ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT 2 -j ${OUTPUT}
+      ${bin_iptables} -w ${_iptables_locktime} -I INPUT 2 -j ${INPUT}
+    else
+      ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -t mangle  -j ${OUTPUT_mangle}
+      ${bin_iptables} -w ${_iptables_locktime} -I OUTPUT -j ${OUTPUT}
+      ${bin_iptables} -w ${_iptables_locktime} -I INPUT -j ${INPUT}
+    fi
 }
 
 function clear_iptables() 

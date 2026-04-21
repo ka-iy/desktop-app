@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ivpn/desktop-app/daemon/api"
@@ -140,6 +141,10 @@ type Service struct {
 	// Intended for clients that manage DNS only while connected (e.g. Portmaster).
 	// Not persistent: resets to empty on next application start and is cleared automatically on client disconnect.
 	TempPrioritizedDns types.TempDnsSettings
+
+	// When not empty - it indicates that Split-Tunneling functionality is disabled
+	// due to some reason and contains the description why it is disabled
+	_splitTunnelNoFuncReason atomic.Pointer[string]
 }
 
 // VpnSessionInfo - Additional information about current VPN connection
@@ -253,13 +258,13 @@ func (s *Service) init() error {
 		log.Error("Failed to initialize firewall with AllowLAN preference value: ", err)
 	}
 
-	//log.Info("Applying firewal exceptions (user configuration)")
+	//log.Info("Applying firewall exceptions (user configuration)")
 	if err := firewall.SetUserExceptions(s._preferences.FwUserExceptions, true); err != nil {
 		log.Error("Failed to apply firewall exceptions: ", err)
 	}
 
 	if s._preferences.IsFwPersistant {
-		log.Info("Enabling firewal (persistant configuration)")
+		log.Info("Enabling firewall (persistent configuration)")
 		if err := firewall.SetPersistant(true); err != nil {
 			log.Error("Failed to enable firewall: ", err)
 		}
@@ -1111,9 +1116,12 @@ func (s *Service) SplitTunnelling_GetStatus() (protocolTypes.SplitTunnelStatus, 
 		isEnabled = false
 	}
 
+	noFuncReason := s.splitTunnelling_getDisabledReason()
+
 	ret := protocolTypes.SplitTunnelStatus{
+		NoFuncReason:                noFuncReason,
 		IsFunctionalityNotAvailable: stErr != nil,
-		IsEnabled:                   isEnabled,
+		IsEnabled:                   isEnabled && len(noFuncReason) == 0,
 		IsInversed:                  isInversed,
 		IsAnyDns:                    isAnyDns,
 		IsAllowWhenNoVpn:            isAllowWhenNoVpn,
@@ -1152,6 +1160,11 @@ func (s *Service) SplitTunnelling_SetConfig(isEnabled, isInversed, isAnyDns, isA
 				return fmt.Errorf("unable to disable the non-IVPN DNS blocking feature for Inverse Split Tunnel mode: manual DNS is currently enabled; please disable manually configured DNS settings first")
 			}
 		}
+	}
+
+	disabledReason := s.splitTunnelling_getDisabledReason()
+	if isEnabled && len(disabledReason) > 0 {
+		return fmt.Errorf("unable to enable Split Tunnel: %s", disabledReason)
 	}
 
 	prefsOld := s._preferences
@@ -1257,8 +1270,35 @@ func (s *Service) splitTunnelling_ApplyConfig() (retError error) {
 		}
 	}
 
+	enabled := prefs.IsSplitTunnel
+	if len(s.splitTunnelling_getDisabledReason()) > 0 {
+		// Split Tunnel is temporarily disabled due to some reason
+		enabled = false
+	}
 	// Apply Split-Tun config
-	return splittun.ApplyConfig(prefs.IsSplitTunnel, prefs.IsInverseSplitTunneling(), prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+	return splittun.ApplyConfig(enabled, prefs.IsInverseSplitTunneling(), prefs.SplitTunnelAllowWhenNoVpn, isVpnConnected, addressesCfg, prefs.SplitTunnelApps)
+}
+
+// SplitTunnelling_SetDisabledReason disables Split Tunnel functionality with specific reason
+// If reason is empty - it will be considered as "no reason", and Split Tunnel functionality will be available
+func (s *Service) SplitTunnelling_SetDisabledReason(reason string) {
+	disabledStateOld := len(s.splitTunnelling_getDisabledReason()) > 0
+
+	s._splitTunnelNoFuncReason.Store(&reason)
+
+	disabledStateNew := len(s.splitTunnelling_getDisabledReason()) > 0
+
+	if disabledStateOld != disabledStateNew {
+		s.splitTunnelling_ApplyConfig()
+	}
+}
+
+func (s *Service) splitTunnelling_getDisabledReason() string {
+	reason := s._splitTunnelNoFuncReason.Load()
+	if reason != nil && len(*reason) > 0 {
+		return *reason
+	}
+	return ""
 }
 
 func (s *Service) SplitTunnelling_AddApp(exec string) (cmdToExecute string, isAlreadyRunning bool, err error) {
