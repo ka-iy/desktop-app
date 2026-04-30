@@ -8,6 +8,16 @@ const (
 	WireGuard VpnType = 1
 )
 
+func (t VpnType) String() string {
+	switch t {
+	case OpenVPN:
+		return "OpenVPN"
+	case WireGuard:
+		return "WireGuard"
+	}
+	return "<Unknown>"
+}
+
 //
 // Command Base
 //
