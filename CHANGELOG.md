@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.  
 
+## Version 3.15.6 - 2026-05-04
+
+[IMPROVED] [Portmaster](https://safing.io/) v2.1.18 compatibility  
+[IMPROVED] Auto-reconnect to daemon - simplify connection state machine and reconnect logic  
+
+[Download IVPN Client for Windows](https://repo.ivpn.net/windows/bin/IVPN-Client-v3.15.6.exe)  
+SHA256: 8b282a46579dcb4b56510935938b060898a3030467d24a6910f0a98ec5f9913c  
+
+[Download IVPN Client for macOS (Intel)](https://repo.ivpn.net/macos/bin/IVPN-3.15.6.dmg)  
+SHA256: f192af338b79ffb79eb108724ef175639d966c46f9c7b4a1cf19e431372631ae  
+[Download IVPN Client for macOS (M1)](https://repo.ivpn.net/macos/bin/IVPN-3.15.6-arm64.dmg)  
+SHA256: f608cd576ea6d307862566c5380bfe39233bb52d481338d294debb86e4bc59ad  
+
+[Download IVPN Client for Linux (DEB)](https://repo.ivpn.net/stable/pool/ivpn_3.15.6_amd64.deb)  
+SHA256: 78c6b8a0c86b434d6ad9d7e734730dbb352cb77ae07c47a7f1ab77bb88db1125  
+[Download IVPN Client for Linux (RPM)](https://repo.ivpn.net/stable/pool/ivpn-3.15.6-1.x86_64.rpm)  
+SHA256: 3d0c420a5b64bac018bf334aaef48dee1b1b8026d82dc457134ef24e68b030db  
+
+[Download IVPN Client UI for Linux (DEB)](https://repo.ivpn.net/stable/pool/ivpn-ui_3.15.6_amd64.deb)  
+SHA256: 00c5efce1afbd00baccf388a4a6eb37e3f3d54037dcebe5768577402befbf977  
+[Download IVPN Client UI for Linux (RPM)](https://repo.ivpn.net/stable/pool/ivpn-ui-3.15.6-1.x86_64.rpm)  
+SHA256: ca6ed9d497adab22731b1e26ba9912cc99d9a85c71566052e00df5a5f47b9f9c  
+
+
 ## Version 3.15.0 - 2025-12-04
 
 [NEW] Support multiple custom DNS servers  
