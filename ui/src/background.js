@@ -110,6 +110,15 @@ if (!gotTheLock) {
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
 app.commandLine.appendSwitch ('lang', 'en-US');
 
+// Linux: launcher association changed in practice after the Electron 42 upgrade:
+// on native Wayland sessions, GNOME resolves dock icons by desktop file id
+// rather than WM_CLASS. Setting the desktop name explicitly ensures the running
+// process is associated with IVPN.desktop in DEB/RPM installs.
+// Snap is excluded because snapd manages launcher identity for snap apps.
+if (Platform() === PlatformEnum.Linux && !process.env.SNAP) {
+  app.setDesktopName("IVPN.desktop");
+}
+
 // macOS: use a stub keychain instead of the real macOS Keychain.
 // Without this flag, macOS prompts users for Keychain access on every Electron upgrade
 // because the app's code signature changes, causing the OS to re-prompt for the existing entry.
@@ -121,7 +130,7 @@ app.commandLine.appendSwitch ('lang', 'en-US');
 //   - Navigation is explicitly blocked, so no external web content can interact with storage
 // The only effect of this flag: Chromium uses an in-memory stub instead of the real macOS
 // Keychain for its internal browser-data encryption — which encrypts nothing of value here.
-if (process.platform === 'darwin') {
+if (Platform() === PlatformEnum.macOS) {
   app.commandLine.appendSwitch('use-mock-keychain');
 }
 
