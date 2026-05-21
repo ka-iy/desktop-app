@@ -119,17 +119,10 @@ if (Platform() === PlatformEnum.Linux && !process.env.SNAP) {
   app.setDesktopName("IVPN.desktop");
 }
 
-// macOS: use a stub keychain instead of the real macOS Keychain.
-// Without this flag, macOS prompts users for Keychain access on every Electron upgrade
-// because the app's code signature changes, causing the OS to re-prompt for the existing entry.
-// Safe to use because:
-//   - App settings are persisted in a plain JSON file (ivpn-settings.json) via settings-persistent.js
-//   - All daemon authentication uses a shared secret over a local TCP socket (daemon-client/index.js)
-//   - app.safeStorage API is never called anywhere in this codebase
-//   - No cookies, localStorage, or IndexedDB are used (all state lives in the Vuex store)
-//   - Navigation is explicitly blocked, so no external web content can interact with storage
-// The only effect of this flag: Chromium uses an in-memory stub instead of the real macOS
-// Keychain for its internal browser-data encryption — which encrypts nothing of value here.
+// macOS: use the mock keychain backend to avoid repeated Keychain prompts after
+// Electron upgrades (the app signature changes and existing entries are revalidated).
+// This is acceptable here because sensitive data is not stored in Chromium-managed
+// browser storage, and app.safeStorage is not used.
 if (Platform() === PlatformEnum.macOS) {
   app.commandLine.appendSwitch('use-mock-keychain');
 }
