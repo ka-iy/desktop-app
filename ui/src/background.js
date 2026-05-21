@@ -110,6 +110,21 @@ if (!gotTheLock) {
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
 app.commandLine.appendSwitch ('lang', 'en-US');
 
+// macOS: use a stub keychain instead of the real macOS Keychain.
+// Without this flag, macOS prompts users for Keychain access on every Electron upgrade
+// because the app's code signature changes, causing the OS to re-prompt for the existing entry.
+// Safe to use because:
+//   - App settings are persisted in a plain JSON file (ivpn-settings.json) via settings-persistent.js
+//   - All daemon authentication uses a shared secret over a local TCP socket (daemon-client/index.js)
+//   - app.safeStorage API is never called anywhere in this codebase
+//   - No cookies, localStorage, or IndexedDB are used (all state lives in the Vuex store)
+//   - Navigation is explicitly blocked, so no external web content can interact with storage
+// The only effect of this flag: Chromium uses an in-memory stub instead of the real macOS
+// Keychain for its internal browser-data encryption — which encrypts nothing of value here.
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('use-mock-keychain');
+}
+
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
 //      dialog.showMessageBox(win, { signal: abortController.signal, })
