@@ -300,7 +300,7 @@ parts:
     plugin: nil
     source: ./ui
     build-snaps:
-      - node/18/stable
+      - node/22/stable
     build-packages:
       - npm
     stage-packages:
