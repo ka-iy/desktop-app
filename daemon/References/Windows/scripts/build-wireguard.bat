@@ -2,7 +2,7 @@
 
 setlocal
 set SCRIPTDIR=%~dp0
-set WGVER=v0.5.3
+set WGVER=v1.1
 
 echo ### Buildind WireGuard binaries  ###
 
