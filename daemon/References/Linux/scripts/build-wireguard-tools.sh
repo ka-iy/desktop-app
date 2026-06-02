@@ -1,6 +1,6 @@
 #!/bin/sh
 
-WG_TOOLS_VER=v1.0.20210914 # https://git.zx2c4.com/wireguard-tools/
+WG_TOOLS_VER=v1.0.20260223 # https://git.zx2c4.com/wireguard-tools/
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
