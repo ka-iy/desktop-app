@@ -3,8 +3,8 @@
 # ##############################################################################
 # Define here WireGuard-Go version
 # ##############################################################################
-WG_GO_VER=0.0.20230223      # https://git.zx2c4.com/wireguard-go/
-WG_TOOLS_VER=v1.0.20210914  # https://git.zx2c4.com/wireguard-tools/
+WG_GO_VER=0.0.20250522      # https://git.zx2c4.com/wireguard-go/
+WG_TOOLS_VER=v1.0.20260223  # https://git.zx2c4.com/wireguard-tools/
 
 # Exit immediately if a command exits with a non-zero status.
 set -e
@@ -73,9 +73,9 @@ rm -rf ${INSTALL_DIR}
 mkdir -pv ${BUILD_DIR}
 mkdir -pv ${INSTALL_DIR}
 
-echo "******** Setting up Go environment version ${GO_VERSION}..."
+#echo "******** Setting up Go environment version ${GO_VERSION}..."
 # Use the temporary Go v1.22.12 environment because 'wireguard-go' fails when using Go >= 1.23
-setup_go_env "1.22.12" # TODO: Remove this when wireguard-go supports latest Go versions
+#setup_go_env "1.22.12" # TODO: Remove this when wireguard-go supports latest Go versions
 
 echo "******** Cloning WireGuard-go sources (version ${WG_GO_VER})..."
 cd ${BUILD_DIR}
