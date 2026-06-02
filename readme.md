@@ -54,13 +54,13 @@ These instructions enable you to get the project up and running on your local ma
 
 #### Windows
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [TDM GCC](https://jmeubank.github.io/tdm-gcc/download/)).  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [MSYS2 MinGW-w64 UCRT](https://www.msys2.org/)).  
 
 <a name="requirements_macos"></a>
 
 #### macOS
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); Xcode Command Line Tools.  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); Xcode Command Line Tools.  
 To compile the OpenVPN/OpenSSL binaries locally, additional packages are required:  
 ```bash
 brew install autoconf automake libtool
@@ -76,7 +76,7 @@ pip3 install pytest pytest-xdist pyyaml
 
 #### Linux
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); gcc; make; [FPM](https://fpm.readthedocs.io/en/latest/installation.html); curl; rpm; libiw-dev.  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); gcc; make; [FPM](https://fpm.readthedocs.io/en/latest/installation.html); curl; rpm; libiw-dev.  
 
 To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional packages are required:  
 `sudo apt install astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind`
