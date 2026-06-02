@@ -5,7 +5,7 @@
 # sudo apt install -y astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind
 # #############################################################
 
-_LIBOQS_VERSION="0.10.0"
+_LIBOQS_VERSION="0.15.0"
 
 _SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 _WORK_FOLDER=$_SCRIPT_DIR/_out_linux

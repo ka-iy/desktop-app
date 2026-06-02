@@ -8,7 +8,7 @@ rem Update this line if using another version of VisualStudio or it is installed
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
 
 rem -= when _VERSION_LIBOQS not defined - will be used latest sources from github =-
-set _VERSION_LIBOQS=0.10.0
+set _VERSION_LIBOQS=0.15.0
 
 set _SCRIPTDIR=%~dp0
 set _WORK_FOLDER=%_SCRIPTDIR%_out_windows
@@ -88,6 +88,7 @@ call :compile_binary || goto :error
     cmake -GNinja .. ^
         -DOQS_MINIMAL_BUILD="KEM_kyber_1024;KEM_classic_mceliece_348864;" ^
         -DCMAKE_BUILD_TYPE=Release ^
+        -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
         -DCMAKE_INSTALL_PREFIX=%_LIBOQS_INSTALL_FOLDER% ^
         -DOQS_BUILD_ONLY_LIB=ON ^
         -DBUILD_SHARED_LIBS=OFF ^
