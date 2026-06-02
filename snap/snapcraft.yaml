@@ -171,7 +171,7 @@ parts:
   daemon:
     plugin: nil
     build-snaps:
-      - go/1.24/stable
+      - go/1.26/stable
     build-packages:
       - curl
       - systemd           # getting 'resolvectl' binary from there
@@ -191,7 +191,7 @@ parts:
   cli:
     plugin: nil
     build-snaps:
-      - go/1.24/stable
+      - go/1.26/stable
     build-packages:
       - git
     source: .
@@ -206,7 +206,7 @@ parts:
   wireguard-tools:
     plugin: nil
     build-snaps:
-    - go/1.24/stable
+    - go/1.26/stable
     build-packages:
     - git
     source: ./daemon/References/Linux
@@ -220,7 +220,7 @@ parts:
   dnscrypt-proxy:
     plugin: nil
     build-snaps:
-    - go/1.24/stable
+    - go/1.26/stable
     build-packages:
     - git
     source: ./daemon/References/Linux
@@ -233,7 +233,7 @@ parts:
   obfs4proxy:
     plugin: nil
     build-snaps:
-    - go/1.24/stable
+    - go/1.26/stable
     build-packages:
     - git
     source: ./daemon/References/Linux
@@ -246,7 +246,7 @@ parts:
   v2ray:
     plugin: nil
     build-snaps:
-    - go/1.24/stable
+    - go/1.26/stable
     build-packages:
     - git
     source: ./daemon/References/Linux
@@ -259,7 +259,7 @@ parts:
   kemhelper:
     plugin: nil
     build-snaps:
-    - go/1.24/stable
+    - go/1.26/stable
     build-packages:
     - git
     - astyle
