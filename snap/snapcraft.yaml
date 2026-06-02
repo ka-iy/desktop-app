@@ -9,13 +9,24 @@
 #     $ snapcraft --debug --use-lxd
 #   
 # **********************************************
-# List of multipass\LXD containers:
-#   multipass list
-#   lxc list
-# Delete multipass\LXD container:
-#   multipass delete $vm --purge  # eg: multipass delete snapcraft-ivpn --purge
-#   lxc delete $vm --force        # eg: lxc delete snapcraft-ivpn --force
+# List Snapcraft build environments:
+#   (LXD default project)
+#     lxc list
+#   (Snapcraft-managed LXD project; this is where Snapcraft containers are)
+#     lxc --project snapcraft list
 #
+# Clean Snapcraft-managed environment:
+#   snapcraft clean --use-lxd
+#
+# Delete a specific Snapcraft LXD container manually:
+#   lxc --project snapcraft delete <name> --force
+#   example:
+#     lxc --project snapcraft delete snapcraft-ivpn-on-amd64-for-amd64-15597620 --force
+#
+# Multipass is used only when building with the Multipass provider.
+# If you use Multipass explicitly, list/delete VMs with:
+#   multipass list
+#   multipass delete <name> --purge
 # **********************************************
 # Installation:
 #     $ sudo snap install <filename>.snap --dangerous
