@@ -44,8 +44,8 @@ const PingServersTimeoutMs = 4000;
 
 const DefaultResponseTimeoutMs = 3 * 60 * 1000;
 
-// Socket to connect to a daemon
-let socket = new net.Socket();
+// Socket to connect to a daemon (null until ConnectToDaemon is called)
+let socket = null;
 // Request number (increasing each new request)
 let requestNo = 0;
 // Array response waiters
@@ -201,7 +201,7 @@ function getNextRequestNo() {
 
 // send request to connected daemon
 function send(request, reqNo) {
-  if (socket == null) throw Error("Unable to send request (socket is closed)");
+  if (socket == null || socket.destroyed) throw Error("Unable to send request (socket is closed)");
 
   if (!request.ProtocolSecret) 
     request.ProtocolSecret = ParanoidModeSecret;
@@ -220,7 +220,11 @@ function send(request, reqNo) {
   //log.debug(`==> ${serialized}`);
   log.debug(`==> ${request.Command}  [${request.Idx}] ${request.Command == "APIRequest"? request.APIPath : ""}`);
   
-  socket.write(`${serialized}\n`);
+  try {
+    socket.write(`${serialized}\n`);
+  } catch (e) {
+    throw Error(`Unable to send request (socket write failed): ${e.message}`);
+  }
 }
 
 function addWaiter(waiter, timeoutMs) {

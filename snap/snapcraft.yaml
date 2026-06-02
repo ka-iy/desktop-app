@@ -9,13 +9,24 @@
 #     $ snapcraft --debug --use-lxd
 #   
 # **********************************************
-# List of multipass\LXD containers:
-#   multipass list
-#   lxc list
-# Delete multipass\LXD container:
-#   multipass delete $vm --purge  # eg: multipass delete snapcraft-ivpn --purge
-#   lxc delete $vm --force        # eg: lxc delete snapcraft-ivpn --force
+# List Snapcraft build environments:
+#   (LXD default project)
+#     lxc list
+#   (Snapcraft-managed LXD project; this is where Snapcraft containers are)
+#     lxc --project snapcraft list
 #
+# Clean Snapcraft-managed environment:
+#   snapcraft clean --use-lxd
+#
+# Delete a specific Snapcraft LXD container manually:
+#   lxc --project snapcraft delete <name> --force
+#   example:
+#     lxc --project snapcraft delete snapcraft-ivpn-on-amd64-for-amd64-15597620 --force
+#
+# Multipass is used only when building with the Multipass provider.
+# If you use Multipass explicitly, list/delete VMs with:
+#   multipass list
+#   multipass delete <name> --purge
 # **********************************************
 # Installation:
 #     $ sudo snap install <filename>.snap --dangerous
@@ -62,7 +73,7 @@
 # **********************************************
 
 name: ivpn # you probably want to 'snapcraft register <name>'
-base: core20 # the base snap is the execution environment for this snap
+base: core22 # the base snap is the execution environment for this snap
 # TODO: Set 'version:' to the same value as in 'ui/package.json'. This value will be used to stamp version for CLI and daemon
 version: "3.15.6"
 
@@ -114,7 +125,7 @@ apps:
 
   ui:
     command: opt/ivpn/ui/bin/ivpn-ui --no-sandbox
-    extensions: [gnome-3-38] # https://snapcraft.io/docs/gnome-3-38-extension
+    extensions: [gnome] # https://snapcraft.io/docs/gnome-extension
     plugs:
       - desktop
       - desktop-legacy
@@ -137,9 +148,9 @@ hooks:
     plugs: [network, firewall-control]
 
 plugs:
-  # UI: plugs required by [gnome-3-38] extension (https://snapcraft.io/docs/gnome-3-38-extension):
-  gnome-3-38-2004:
-    default-provider: gnome-3-38-2004
+  # UI: plugs required by [gnome] extension (https://snapcraft.io/docs/gnome-extension):
+  gnome-42-2204:
+    default-provider: gnome-42-2204
     interface: content
     target: $SNAP/gnome-platform
   gtk-3-themes:
@@ -300,7 +311,7 @@ parts:
     plugin: nil
     source: ./ui
     build-snaps:
-      - node/18/stable
+      - node/22/stable
     build-packages:
       - npm
     stage-packages:

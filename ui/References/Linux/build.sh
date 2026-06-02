@@ -57,6 +57,11 @@ APP_UNPACKED_DIR_ARCH="$SCRIPT_DIR/../../dist/linux-${ARCH}-unpacked"
 APP_BIN_DIR="$SCRIPT_DIR/../../dist/bin"
 IVPN_DESKTOP_UI2_SOURCES="$SCRIPT_DIR/../../"
 
+# In Snapcraft/LXD builds ensure npm subprocesses resolve the same Node runtime.
+if [ -n "$SNAPCRAFT_PART_INSTALL" ] && [ -d "/snap/node/current/bin" ]; then
+  export PATH="/snap/node/current/bin:$PATH"
+fi
+
 # ---------------------------------------------------------
 # version info variables
 VERSION=""
@@ -143,8 +148,8 @@ echo "[ ] Renaming: '$APP_UNPACKED_DIR' -> '$APP_BIN_DIR'"
 mv $APP_UNPACKED_DIR $APP_BIN_DIR
 CheckLastResult
 
-if [ ! -z "$SNAPCRAFT_BUILD_ENVIRONMENT" ]; then
-    echo "! SNAPCRAFT_BUILD_ENVIRONMENT detected !"
+if [ -n "$SNAPCRAFT_PART_INSTALL" ]; then
+  echo "! SNAPCRAFT_PART_INSTALL detected !"
     echo "! DEB/RPM packages build skipped !"
     exit 0
 fi

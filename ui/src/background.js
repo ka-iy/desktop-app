@@ -110,6 +110,23 @@ if (!gotTheLock) {
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
 app.commandLine.appendSwitch ('lang', 'en-US');
 
+// Linux: launcher association changed in practice after the Electron 42 upgrade:
+// on native Wayland sessions, GNOME resolves dock icons by desktop file id
+// rather than WM_CLASS. Setting the desktop name explicitly ensures the running
+// process is associated with IVPN.desktop in DEB/RPM installs.
+// Snap is excluded because snapd manages launcher identity for snap apps.
+if (Platform() === PlatformEnum.Linux && !process.env.SNAP) {
+  app.setDesktopName("IVPN.desktop");
+}
+
+// macOS: use the mock keychain backend to avoid repeated Keychain prompts after
+// Electron upgrades (the app signature changes and existing entries are revalidated).
+// This is acceptable here because sensitive data is not stored in Chromium-managed
+// browser storage, and app.safeStorage is not used.
+if (Platform() === PlatformEnum.macOS) {
+  app.commandLine.appendSwitch('use-mock-keychain');
+}
+
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
 //      dialog.showMessageBox(win, { signal: abortController.signal, })
