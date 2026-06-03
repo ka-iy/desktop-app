@@ -57,6 +57,10 @@ func (s *Service) implPingServersStopped(hosts []net.IP) error {
 
 func (s *Service) implSplitTunnelling_AddApp(binaryFile string) (requiredCmdToExec string, isAlreadyRunning bool, err error) {
 	binaryFile = strings.TrimSpace(binaryFile)
+	// Strip a single surrounding quote pair (e.g. paths with spaces sent by CLI as "path to binary")
+	if len(binaryFile) >= 2 && binaryFile[0] == '"' && binaryFile[len(binaryFile)-1] == '"' {
+		binaryFile = binaryFile[1 : len(binaryFile)-1]
+	}
 	if len(binaryFile) <= 0 {
 		return "", false, nil
 	}

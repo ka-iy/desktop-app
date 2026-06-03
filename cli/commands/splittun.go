@@ -120,7 +120,16 @@ func doAddApp(args []string, eaaPass string, isHashedPass bool) error {
 			_proto.InitSetParanoidModeSecret(eaaPass)
 		}
 	}
-	isRequiredToExecuteCommand, err := _proto.SplitTunnelAddApp(strings.Join(args[:], " "))
+
+	// Quote the resolved binary path when it contains spaces.
+	// The Linux daemon parses Exec as a command string and requires quoting.
+	// The Windows daemon strips surrounding quotes before using the path (see implSplitTunnelling_AddApp).
+	execBin := binary
+	if strings.ContainsAny(execBin, " \t") {
+		execBin = `"` + strings.ReplaceAll(execBin, `"`, `\"`) + `"`
+	}
+	execParts := append([]string{execBin}, args[1:]...)
+	isRequiredToExecuteCommand, err := _proto.SplitTunnelAddApp(strings.Join(execParts, " "))
 	if err != nil {
 		return err
 	}
