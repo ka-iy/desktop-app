@@ -334,7 +334,7 @@ export default {
 
         // skip servers which user excluded from the 'fastest server' list
         const curGwID = getGatewayId(curSvr.gateway);
-        if (skipSvrs.find((ss) => curGwID == getGatewayId(ss))) continue;
+        if (skipSvrs.includes(curGwID)) continue;
 
         if (!fallbackSvr && selectedGwId === curGwID) fallbackSvr = curSvr;
 
@@ -348,7 +348,6 @@ export default {
           retSvrPing = svrPing;
         }
       }
-      if (!fallbackSvr) fallbackSvr = servers[0];
 
       if (!retSvr) {
         // No fastest server detected (due to no ping info available)
@@ -379,10 +378,10 @@ export default {
 
             // sort servers by distance from last known real location
             let sortedSvrs = servers.slice().sort(compare);
-            // get nearest server
+            // get nearest server that is not excluded
             for (let i = 0; i < sortedSvrs.length; i++) {
               let curSvr = sortedSvrs[i];
-              if (skipSvrs != null && skipSvrs.includes(curSvr.gateway))
+              if (skipSvrs != null && skipSvrs.includes(getGatewayId(curSvr.gateway)))
                 continue;
               retSvr = curSvr;
               break;
@@ -392,8 +391,35 @@ export default {
           }
         }
 
-        // If still not found: choose the first applicable server
-        if (!retSvr) retSvr = fallbackSvr;
+        // If still not found: estimate location from the system timezone offset.
+        // getTimezoneOffset() returns minutes *west* of UTC (e.g. UTC+3 → -180, UTC-5 → +300).
+        // Earth rotates 360° in 24 h = 15° per hour = 0.25° per minute, so:
+        //   longitude ≈ -offsetMinutes × 0.25
+        // This is only a rough east-west estimate (ignores latitude entirely), but it is
+        // still far better than picking an arbitrary first server.
+        if (!retSvr) {
+          try {
+            const estimatedLongitude = -new Date().getTimezoneOffset() / 4;
+            let minLonDiff = Infinity;
+            for (const svr of servers) {
+              if (skipSvrs.includes(getGatewayId(svr.gateway))) continue;
+              const diff = Math.abs(svr.longitude - estimatedLongitude);
+              const wrappedDiff = Math.min(diff, 360 - diff); // handle antimeridian wrap-around
+              if (wrappedDiff < minLonDiff) {
+                minLonDiff = wrappedDiff;
+                retSvr = svr;
+              }
+            }
+          } catch (e) {
+            console.log(e);
+          }
+        }
+
+        // If still not found: choose the first applicable server (not excluded; fall back to servers[0] if all are excluded)
+        if (!retSvr) {
+          if (!fallbackSvr) fallbackSvr = servers.find((s) => !skipSvrs.includes(getGatewayId(s.gateway))) ?? servers[0];
+          retSvr = fallbackSvr;
+        }
       }
 
       return retSvr;
