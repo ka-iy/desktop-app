@@ -51,7 +51,7 @@ import daemonClient from "./daemon-client";
 import darwinDaemonInstaller from "./daemon-client/darwin-installer";
 import { InitTray } from "./tray";
 import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
-import { IsWindowHasFrame } from "@/platform/platform";
+import { IsWindowHasFrame, IsWindowHasShadow } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
 import { join } from 'path'
@@ -751,6 +751,7 @@ function createWindow(doNotShowWhenReady) {
       ? config.MinimizedUIWidth
       : config.MaximizedUIWidth,
     height: 600,
+    hasShadow: IsWindowHasShadow(),
 
     resizable: false,
     fullscreenable: false,
@@ -870,6 +871,7 @@ function createSettingsWindow(viewName) {
 
     width: 800,
     height: 600,
+    hasShadow: IsWindowHasShadow(),
 
     resizable: false,
     fullscreenable: false,
@@ -930,6 +932,7 @@ function createUpdateWindow() {
     height: 400,
     maxWidth: config.UpdateWindowWidth,
     maxHeight: 600,
+    hasShadow: IsWindowHasShadow(),
 
     resizable: false,
     fullscreenable: false,

@@ -57,3 +57,23 @@ export function Platform() {
 export function IsWindowHasFrame() {
   return Platform() === PlatformEnum.macOS;
 }
+
+/**
+ * Returns whether BrowserWindows should have a native drop shadow.
+ *
+ * A dedicated function is used instead of reusing IsWindowHasFrame() so that
+ * the shadow policy can evolve independently of the frame/titlebar policy.
+ *
+ * Background: Electron v42 changed behaviour on Wayland (Linux) — frameless
+ * windows now receive GTK client-side-decoration (CSD) drop shadows and
+ * extended resize boundaries allocated *inside* the declared window size,
+ * shrinking the visible content area (e.g. 800×600 becomes 768×558).
+ * Setting hasShadow: false in the BrowserWindow constructor opts out of the
+ * GTK CSD shadow allocation and restores the intended dimensions.
+ * See: https://github.com/electron/electron/pull/49295
+ */
+export function IsWindowHasShadow() {
+  // Disable shadow on Linux to suppress GTK CSD insets (Electron v42 Wayland).
+  // On all other platforms the default shadow behaviour is preserved.
+  return Platform() !== PlatformEnum.Linux;
+}
