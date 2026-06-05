@@ -272,6 +272,10 @@ if (gotTheLock && isAllowedToStart) {
       label: "File",
       submenu: [isMac ? { role: "close" } : { role: "quit" }],
     },
+    // { role: 'editMenu' }
+    {
+      role: "editMenu",
+    },
     // { role: 'windowMenu' }
     {
       label: "Window",

@@ -22,13 +22,6 @@
 
 const sender = window.ipcSender;
 
-const keyCodes = {
-  V: 86,
-  C: 67,
-  X: 88,
-  A: 65,
-};
-
 export function InitDefaultCopyMenus() {
   document.body.addEventListener("contextmenu", (e) => {
     e.preventDefault();
@@ -52,27 +45,4 @@ export function InitDefaultCopyMenus() {
       node = node.parentNode;
     }
   });
-
-  // Ability to get working Copy\Paste to 'input' elements
-  // without modification application menu (which is required for macOS)
-  document.onkeydown = function (event) {
-    if (event.ctrlKey || event.metaKey) {
-      // detect ctrl or cmd
-      const field = document.activeElement;
-      switch (event.which) {
-        case keyCodes.A:
-          document.execCommand("selectall");
-          return false;
-        case keyCodes.V:
-          if (field != null) document.execCommand("paste");
-          return false;
-        case keyCodes.C:
-          document.execCommand("copy");
-          return false;
-        case keyCodes.X:
-          if (field != null) document.execCommand("cut");
-          return false;
-      }
-    }
-  };
 }
