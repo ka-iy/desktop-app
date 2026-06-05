@@ -753,7 +753,7 @@ function createWindow(doNotShowWhenReady) {
     height: 600,
     hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
     fullscreenable: false,
     maximizable: false,
     skipTaskbar:
@@ -768,6 +768,14 @@ function createWindow(doNotShowWhenReady) {
   };
 
   win = createBrowserWindow(windowConfig);
+
+  // Electron v28+ on Windows: using resizable:false causes an invisible WS_THICKFRAME border
+  // to be injected, making all size APIs permanently unreliable (e.g. setBounds({width:800})
+  // silently produces a ~784px window — Windows strips the border dimensions from every size
+  // operation and re-injects the border on each window event). Using 'will-resize' instead
+  // achieves the same UX — user cannot resize — without touching the resizable flag at all.
+  // Note: 'will-resize' only fires for user-initiated drag resizes, never for setBounds calls.
+  win.on("will-resize", (event) => { event.preventDefault(); });
 
   // restore window position
   let lastPos = store.state.settings.windowRestorePosition;
@@ -798,7 +806,9 @@ function createWindow(doNotShowWhenReady) {
   // show\hide app from system dock
   updateAppDockVisibility();
 
-  win.once("ready-to-show", () => {   
+  win.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    win.setBounds({ width: windowConfig.width, height: windowConfig.height });
     if (doNotShowWhenReady != true) {   
       win.show();
     }
@@ -842,13 +852,11 @@ function createWindow(doNotShowWhenReady) {
   });
 }
 
-async function applyMinimizedState() {
-  let w = win;
-  if (w == null) return null;
-  const animate = false;
-  if (store.state.settings.minimizedUI)
-    return await w.setBounds({ width: config.MinimizedUIWidth }, animate);
-  else return await w.setBounds({ width: config.MaximizedUIWidth }, animate);
+function applyMinimizedState() {
+  const w = win;
+  if (w == null) return;
+  const desiredW = store.state.settings.minimizedUI ? config.MinimizedUIWidth : config.MaximizedUIWidth;
+  w.setBounds({ width: desiredW });
 }
 
 function onDaemonExiting() {
@@ -873,7 +881,7 @@ function createSettingsWindow(viewName) {
     height: 600,
     hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
     fullscreenable: false,
     maximizable: false,
 
@@ -889,6 +897,9 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
+  // See will-resize comment in createWindow() for explanation of why resizable:false is omitted.
+  settingsWindow.on("will-resize", (event) => { event.preventDefault(); });
+
   console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
     // Load the remote URL for development or the local html file for production.
@@ -899,6 +910,8 @@ function createSettingsWindow(viewName) {
   }
 
   settingsWindow.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    settingsWindow.setBounds({ width: windowConfig.width, height: windowConfig.height });
     settingsWindow.show();
 
     if (config.IsDebug()) {
@@ -934,7 +947,7 @@ function createUpdateWindow() {
     maxHeight: 600,
     hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
     fullscreenable: false,
     maximizable: false,
     minimizable: false,
@@ -949,6 +962,9 @@ function createUpdateWindow() {
 
   updateWindow = createBrowserWindow(windowConfig);
 
+  // See will-resize comment in createWindow() for explanation of why resizable:false is omitted.
+  updateWindow.on("will-resize", (event) => { event.preventDefault(); });
+
   // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
     updateWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#update`)
@@ -957,6 +973,8 @@ function createUpdateWindow() {
   }
 
   updateWindow.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    updateWindow.setBounds({ width: windowConfig.width, height: windowConfig.height });
     updateWindow.show();
 
     if (config.IsDebug()) {
