@@ -1826,7 +1826,7 @@ func (s *Service) GetDiagnosticLogs() (logActive string, logPrevSession string, 
 	return log, log0, extraInfo, nil
 }
 
-func (s *Service) diagnosticGetCommandOutput(command string, args ...string) string {
+func (s *Service) diagnosticGetCommandOutput(command string, args ...string) (string, error) {
 	outText, outErrText, _, isBufferTooSmall, err := shell.ExecAndGetOutput(nil, 1024*30, "", command, args...)
 	ret := fmt.Sprintf("[ $ %s %v ]:\n%s", command, args, outText)
 	if isBufferTooSmall {
@@ -1838,7 +1838,7 @@ func (s *Service) diagnosticGetCommandOutput(command string, args ...string) str
 	if err != nil {
 		ret += "\n [ERROR]: " + err.Error()
 	}
-	return ret
+	return ret, err
 }
 
 //////////////////////////////////////////////////////////

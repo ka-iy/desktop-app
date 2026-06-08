@@ -123,8 +123,8 @@ func (s *Service) implSplitTunnelling_AddedPidInfo(pid int, exec string, cmdToEx
 }
 
 func (s *Service) implGetDiagnosticExtraInfo() (string, error) {
-	ifconfig := s.diagnosticGetCommandOutput("ipconfig", "/all")
-	route := s.diagnosticGetCommandOutput("route", "print")
+	ifconfig, _ := s.diagnosticGetCommandOutput("ipconfig", "/all")
+	route, _ := s.diagnosticGetCommandOutput("route", "print")
 
 	return fmt.Sprintf("%s\n%s", ifconfig, route), nil
 }

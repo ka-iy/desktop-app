@@ -65,9 +65,9 @@ func (s *Service) implSplitTunnelling_AddedPidInfo(pid int, exec string, cmdToEx
 	return fmt.Errorf("function not applicable for this platform")
 }
 func (s *Service) implGetDiagnosticExtraInfo() (string, error) {
-	ifconfig := s.diagnosticGetCommandOutput("ifconfig")
-	netstat := s.diagnosticGetCommandOutput("netstat", "-nr")
-	scutil := s.diagnosticGetCommandOutput("scutil", "--dns")
+	ifconfig, _ := s.diagnosticGetCommandOutput("ifconfig")
+	netstat, _ := s.diagnosticGetCommandOutput("netstat", "-nr")
+	scutil, _ := s.diagnosticGetCommandOutput("scutil", "--dns")
 
 	return fmt.Sprintf("%s\n%s\n%s", ifconfig, netstat, scutil), nil
 }
