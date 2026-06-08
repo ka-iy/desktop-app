@@ -119,10 +119,18 @@ func (s *Service) implSplitTunnelling_AddedPidInfo(pid int, exec string, cmdToEx
 }
 
 func (s *Service) implGetDiagnosticExtraInfo() (string, error) {
-	ifconfig := s.diagnosticGetCommandOutput("ifconfig")
-	netstat := s.diagnosticGetCommandOutput("netstat", "-nr", "--protocol", "inet,inet6")
-	resolvectl := s.diagnosticGetCommandOutput("resolvectl", "status")
-	resolvconf := s.diagnosticGetCommandOutput("cat", "/etc/resolv.conf")
+	ifconfig, err := s.diagnosticGetCommandOutput("ifconfig")
+	if err != nil {
+		ifconfig, _ = s.diagnosticGetCommandOutput("ip", "addr")
+	}
+	netstat, err := s.diagnosticGetCommandOutput("netstat", "-nr", "--protocol", "inet,inet6")
+	if err != nil {
+		ipv4routes, _ := s.diagnosticGetCommandOutput("ip", "-4", "route")
+		ipv6routes, _ := s.diagnosticGetCommandOutput("ip", "-6", "route")
+		netstat = ipv4routes + "\n" + ipv6routes
+	}
+	resolvectl, _ := s.diagnosticGetCommandOutput("resolvectl", "status")
+	resolvconf, _ := s.diagnosticGetCommandOutput("cat", "/etc/resolv.conf")
 
 	return fmt.Sprintf("%s\n%s\n%s\n%s", ifconfig, netstat, resolvectl, resolvconf), nil
 }

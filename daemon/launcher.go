@@ -44,6 +44,8 @@ import (
 	"github.com/ivpn/desktop-app/daemon/service/preferences"
 	"github.com/ivpn/desktop-app/daemon/service/wgkeys"
 	"github.com/ivpn/desktop-app/daemon/version"
+
+	"github.com/shirou/gopsutil/v4/host"
 )
 
 var log *logger.Logger
@@ -136,11 +138,19 @@ func Launch() {
 		doStopped()
 	}()
 
+	// Get system uptime
+	seconds, err := host.Uptime()
+	var systemUptime time.Duration
+	if err == nil {
+		systemUptime = time.Duration(seconds) * time.Second
+	}
+	// Get timezone info
 	tzName, tzOffsetSec := time.Now().Zone()
-
-	log.Info(fmt.Sprintf("Starting IVPN daemon [%s,%s] [timezone: %s %d (%dh)] [pid: %d; ppid: %d; arch: %dbit]",
+	// Log startup info
+	log.Info(fmt.Sprintf("Starting IVPN daemon [%s,%s] [timezone: %s %d (%dh)] [system uptime: %s] [pid: %d; ppid: %d; arch: %dbit]",
 		runtime.GOOS, runtime.GOARCH,
 		tzName, tzOffsetSec, tzOffsetSec/(60*60),
+		systemUptime.Truncate(time.Second),
 		os.Getpid(), os.Getppid(), strconv.IntSize))
 
 	log.Info(fmt.Sprintf("args: %s", os.Args))
