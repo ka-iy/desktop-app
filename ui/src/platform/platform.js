@@ -77,3 +77,22 @@ export function IsWindowHasShadow() {
   // On all other platforms the default shadow behaviour is preserved.
   return Platform() !== PlatformEnum.Linux;
 }
+
+/**
+ * Returns whether BrowserWindows should be created with resizable: true.
+ *
+ * On Windows, setting resizable: false causes a permanent WS_THICKFRAME inset
+ * (Electron v28+): all size APIs become unreliable because Windows silently
+ * strips the invisible border from every dimension (e.g. setBounds({width:800})
+ * produces a ~784 px window). To avoid this, Windows windows are created with
+ * resizable: true and user-initiated drag resizes are blocked via the
+ * 'will-resize' event handler instead.
+ *
+ * On macOS and Linux, resizable: false works correctly and is used directly.
+ * Note: 'will-resize' is not emitted on Linux, so the event-based approach
+ * cannot be used there.
+ */
+export function IsResizableWindow() {
+  // Only Windows needs resizable:true to avoid the WS_THICKFRAME inset bug.
+  return Platform() === PlatformEnum.Windows;
+}

@@ -51,7 +51,7 @@ import daemonClient from "./daemon-client";
 import darwinDaemonInstaller from "./daemon-client/darwin-installer";
 import { InitTray } from "./tray";
 import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
-import { IsWindowHasFrame, IsWindowHasShadow } from "@/platform/platform";
+import { IsWindowHasFrame, IsWindowHasShadow, IsResizableWindow } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
 import { join } from 'path'
@@ -757,7 +757,9 @@ function createWindow(doNotShowWhenReady) {
     height: 600,
     hasShadow: IsWindowHasShadow(),
 
-    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
     skipTaskbar:
@@ -773,12 +775,8 @@ function createWindow(doNotShowWhenReady) {
 
   win = createBrowserWindow(windowConfig);
 
-  // Electron v28+ on Windows: using resizable:false causes an invisible WS_THICKFRAME border
-  // to be injected, making all size APIs permanently unreliable (e.g. setBounds({width:800})
-  // silently produces a ~784px window — Windows strips the border dimensions from every size
-  // operation and re-injects the border on each window event). Using 'will-resize' instead
-  // achieves the same UX — user cannot resize — without touching the resizable flag at all.
-  // Note: 'will-resize' only fires for user-initiated drag resizes, never for setBounds calls.
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
+  // Note: 'will-resize' fires only on Windows and macOS, not on Linux.
   win.on("will-resize", (event) => { event.preventDefault(); });
 
   // restore window position
@@ -885,7 +883,9 @@ function createSettingsWindow(viewName) {
     height: 600,
     hasShadow: IsWindowHasShadow(),
 
-    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
 
@@ -901,7 +901,7 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
-  // See will-resize comment in createWindow() for explanation of why resizable:false is omitted.
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
   settingsWindow.on("will-resize", (event) => { event.preventDefault(); });
 
   console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
@@ -951,7 +951,9 @@ function createUpdateWindow() {
     maxHeight: 600,
     hasShadow: IsWindowHasShadow(),
 
-    // resizable:false omitted — causes permanent WS_THICKFRAME inset on Windows (Electron v28+); user resizing blocked via 'will-resize' below.
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
     minimizable: false,
@@ -966,7 +968,7 @@ function createUpdateWindow() {
 
   updateWindow = createBrowserWindow(windowConfig);
 
-  // See will-resize comment in createWindow() for explanation of why resizable:false is omitted.
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
   updateWindow.on("will-resize", (event) => { event.preventDefault(); });
 
   // Load the remote URL for development or the local html file for production.
