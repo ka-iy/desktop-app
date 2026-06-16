@@ -90,15 +90,20 @@ To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional pa
 #### Windows
 
 Instructions to build installer of IVPN Client *(daemon + CLI + UI)*:  
-Use Developer Command Prompt for Visual Studio (required for building native sub-projects).  
+Use **Developer PowerShell for VS 2022** (required for building native sub-projects).  
 
-```bash
+```powershell
 git clone https://github.com/ivpn/desktop-app.git
 cd desktop-app/ui/References/Windows
-build.bat
+
+# Compile all binaries (no signing, no installer)
+.\build.bat
+
+# Build unsigned installer
+.\package-release.ps1
 ```
 
-  Compiled binaries can be found at: `ui/References/Windows/bin`  
+Compiled installer can be found at: `ui/References/Windows/bin`  
 
 <a name="compilation_macos"></a>
 

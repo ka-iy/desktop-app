@@ -4,12 +4,8 @@ setlocal
 set SCRIPTDIR=%~dp0
 set APPVER=%1
 
-set CERT_SHA1=%2
-
 set COMMIT=""
 set DATE=""
-
-set TIMESTAMP_SERVER=http://timestamp.digicert.com
 
 rem Update this line if using another version of VisualStudio or it is installed in another location
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
@@ -89,16 +85,6 @@ goto :success
 
 	go build -tags release -o "bin\%~1\IVPN Service.exe" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=%APPVER% -X github.com/ivpn/desktop-app/daemon/version._commit=%COMMIT% -X github.com/ivpn/desktop-app/daemon/version._time=%DATE%" || exit /b 1
 
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\%~1\IVPN Service.exe" || exit /b 1
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
-
 	echo Compiled binary: "bin\%~1\IVPN Service.exe"
 	goto :eof
 
@@ -124,16 +110,6 @@ goto :success
 	echo ### Buildind obfs4proxy         ###
 	call "%SCRIPTDIR%\build-obfs4proxy.bat" || goto error
 
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing 'obfs4proxy.exe' binary [certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%]
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\OpenVPN\obfsproxy\obfs4proxy.exe" || goto :eof
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
-
 	goto :eof
 
 :build_v2ray
@@ -146,16 +122,6 @@ goto :success
 	echo ### Buildind v2ray         ###
 	call "%SCRIPTDIR%\build-v2ray.bat" || goto error
 
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing 'v2ray.exe' binary [certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%]
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\v2ray\v2ray.exe" || goto :eof
-		echo.
-		echo Signing SUCCES
-		echo.
-	)	
-
 :build_dnscrypt_proxy
 	if exist "%SCRIPTDIR%..\dnscrypt-proxy\dnscrypt-proxy.exe" (
 		echo [ ] dnscrypt-proxy binaries already available. Compilation skipped.
@@ -165,16 +131,6 @@ goto :success
 	echo ### dnscrypt-proxy binary not found ###
 	echo ### Buildind dnscrypt-proxy         ###
 	call "%SCRIPTDIR%\build-dnscrypt-proxy.bat" || goto error
-
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing 'dnscrypt-proxy.exe' binary [certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%]
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\dnscrypt-proxy\dnscrypt-proxy.exe" || goto :eof
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
 
 	goto :eof
 
@@ -189,17 +145,6 @@ goto :success
 	echo ### WireGuard binaries not found ###
 	call "%SCRIPTDIR%\build-wireguard.bat" || goto error
 
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing binaries ['wg.exe', 'wireguard.exe'] [certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%]
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\WireGuard\x86_64\wg.exe" || goto :eof
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\WireGuard\x86_64\wireguard.exe" || goto :eof
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
-
 	goto :eof
 
 :build_kem_helper
@@ -211,16 +156,6 @@ goto :success
 	echo ### KEM-helper binaries not found ###
 	call "%SCRIPTDIR%\build-kem-helper.bat" || goto error
 
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing 'kem-helper.exe' binary [certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%]
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%SCRIPTDIR%..\kem\kem-helper.exe" || goto :eof
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
-	
 	goto :eof
 
 :success

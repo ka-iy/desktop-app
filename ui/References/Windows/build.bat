@@ -3,11 +3,7 @@
 setlocal
 set SCRIPTDIR=%~dp0
 
-set CERT_SHA1=%1
-
 rem ==================================================
-rem DEFINE path to NSIS binary here
-SET MAKENSIS="C:\Program Files (x86)\NSIS\makensis.exe"
 rem Update this line if using another version of VisualStudio or it is installed in another location
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
 rem ==================================================
@@ -24,7 +20,7 @@ rem Checking if msbuild available
 WHERE msbuild >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
 	echo [!] 'msbuild' is not recognized as an internal or external command
-	echo [!] Ensure you are running this script from Developer Cammand Prompt for Visual Studio
+	echo [!] Ensure you are running this script from Developer Command Prompt for Visual Studio
 	
 	if not defined VSCMD_VER (
         if "%VSCMD_ARG_TGT_ARCH%" NEQ "x64" (
@@ -41,13 +37,6 @@ IF %ERRORLEVEL% NEQ 0 (
 	)
 )
 
-rem Checking if NSIS  available
-if not exist %MAKENSIS% (
-    echo [!] NSIS binary not found [%MAKENSIS%]
-	echo [!] Install NSIS [https://nsis.sourceforge.io/] or\and modify MAKENSIS variable of this script
-	goto :error
-)
-
 call :read_app_version 				|| goto :error
 echo     APPVER         : '%APPVER%'
 echo     SOURCES Service: %SERVICE_REPO%
@@ -58,7 +47,6 @@ call :build_cli								|| goto :error
 call :build_ui								|| goto :error
 
 call :copy_files 							|| goto :error
-call :build_installer					|| goto :error
 
 rem THE END
 goto :success
@@ -86,13 +74,13 @@ goto :success
 
 :build_service
 	echo [*] Building IVPN service and dependencies...
-	call %SERVICE_REPO%\References\Windows\scripts\build-all.bat %APPVER% %CERT_SHA1% || exit /b 1
+	call %SERVICE_REPO%\References\Windows\scripts\build-all.bat %APPVER% || exit /b 1
 	goto :eof
 
 :build_cli
 	echo [*] Building IVPN CLI...
 	echo %CLI_REPO%\References\Windows\build.bat
-	call %CLI_REPO%\References\Windows\build.bat %APPVER% %CERT_SHA1% || exit /b 1
+	call %CLI_REPO%\References\Windows\build.bat %APPVER% || exit /b 1
 	goto :eof
 
 :build_ui
@@ -112,17 +100,6 @@ goto :success
 
 :copy_files
 	set UI_BINARIES_FOLDER=%SCRIPTDIR%..\..\dist\win-unpacked
-
-	set TIMESTAMP_SERVER=http://timestamp.digicert.com
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "%UI_BINARIES_FOLDER%\IVPN.exe" || exit /b 1
-		echo.
-		echo Signing SUCCES
-		echo.
-	)
 
 	echo [*] Copying files...
 	IF exist "%INSTALLER_TMP_DIR%" (
@@ -176,32 +153,8 @@ goto :success
 	)
 	goto :eof
 
-:build_installer
-	echo [*] Building installer...
-
-	echo [ ] Verifying files ...
-	if NOT "%CERT_SHA1%" == "" (
-		call "%PATH_UI_REPO%\References\Windows\verify-bin-signs.bat" || exit /b 1
-	)
-
-	for /F "tokens=1,2 delims=: " %%a in (%SCRIPTDIR%\Installer\release-files-SHA256.txt) do (
-		call "%SCRIPTDIR%\verify-file-hashsum-sha256.bat" "%INSTALLER_TMP_DIR%\%%a" %%b || exit /b 1
-	)
-	
-	cd %SCRIPTDIR%\Installer
-
-	SET OUT_FILE="%INSTALLER_OUT_DIR%\IVPN-Client-v%APPVER%.exe"
-	%MAKENSIS% /DPRODUCT_VERSION=%APPVER% /DOUT_FILE=%OUT_FILE% /DSOURCE_DIR=%INSTALLER_TMP_DIR% "IVPN Client.nsi"
-	IF not ERRORLEVEL 0 (
-		ECHO [!] Error: failed to create installer
-		EXIT /B 1
-	)
-	goto :eof
-
 :success
 	goto :remove_tmp_vars_before_exit
-	echo [*] SUCCESS
-	exit /b 0
 
 :error
 	goto :remove_tmp_vars_before_exit
