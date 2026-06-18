@@ -54,7 +54,14 @@ These instructions enable you to get the project up and running on your local ma
 
 #### Windows
 
-[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (22.12.0)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [MSYS2 MinGW-w64 UCRT](https://www.msys2.org/)).  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (22.12.0)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Visual Studio 2022 with 'Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v143 C++ x64 build tools', 'C++ ATL for latest v143 build tools'; gcc compiler (e.g. [MSYS2 MinGW-w64 UCRT](https://www.msys2.org/)).  
+
+**Additional requirements for ARM64 builds:**  
+Visual Studio 2022 individual components (VS Installer > Modify > Individual components):  
+- 'MSVC v143 - VS 2022 C++ ARM64 build tools (Latest)'  
+- 'C++ ATL for latest v143 build tools (ARM64/ARM64EC)' - required for native DLL (IVPN Helpers Native) ARM64 build  
+
+[llvm-mingw](https://github.com/mstorsjo/llvm-mingw/releases/latest) x86_64-hosted cross-compiler (`llvm-mingw-YYYYMMDD-ucrt-x86_64.zip`) - required for CGO cross-compilation of the daemon (wifiNotifier) targeting ARM64; set the `LLVM_MINGW` environment variable to its root folder.  
 
 <a name="requirements_macos"></a>
 

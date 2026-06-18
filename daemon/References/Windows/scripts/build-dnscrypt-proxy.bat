@@ -7,11 +7,18 @@ set _VERSION=2.1.14
 
 set SCRIPTDIR=%~dp0
 
-if exist "%SCRIPTDIR%..\dnscrypt-proxy" (
-  echo [*] Erasing dnscrypt-proxy\*.exe ...
-  del /f /q /s "%SCRIPTDIR%..\dnscrypt-proxy\*.exe"  >nul 2>&1 || exit /b 1
+rem Determine target architecture (x86_64 or arm64). Default: host arch.
+if "%~1" == "" (
+    if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
 ) else (
-  mkdir "%SCRIPTDIR%..\dnscrypt-proxy" || exit /b 1
+    set "_ARCH=%~1"
+)
+
+if exist "%SCRIPTDIR%..\dnscrypt-proxy\%_ARCH%" (
+  echo [*] Erasing dnscrypt-proxy\%_ARCH%\*.exe ...
+  del /f /q "%SCRIPTDIR%..\dnscrypt-proxy\%_ARCH%\dnscrypt-proxy.exe"  >nul 2>&1
+) else (
+  mkdir "%SCRIPTDIR%..\dnscrypt-proxy\%_ARCH%" || exit /b 1
 )
 
 if exist "%SCRIPTDIR%..\.deps\dnscrypt-proxy" (
@@ -30,10 +37,12 @@ cd dnscrypt-proxy
 echo [*] Checkout version '%_VERSION%' of 'dnscrypt-proxy'..."
 git checkout tags/%_VERSION%
 
-echo [*] Compiling dnscrypt-proxy ...
+echo [*] Compiling dnscrypt-proxy (%_ARCH%) ...
 
-go build -o "%SCRIPTDIR%..\dnscrypt-proxy\dnscrypt-proxy.exe" -trimpath -ldflags "-s -w" ./dnscrypt-proxy >nul 2>&1 || exit /b 1
+if /I "%_ARCH%" == "arm64" ( set "GOARCH=arm64" ) else ( set "GOARCH=amd64" )
+set "GOOS=windows"
+go build -o "%SCRIPTDIR%..\dnscrypt-proxy\%_ARCH%\dnscrypt-proxy.exe" -trimpath -ldflags "-s -w" ./dnscrypt-proxy || exit /b 1
 
 echo [ ] SUCCESS
 echo [ ] The compiled 'dnscrypt-proxy.exe' binary located at:
-echo [ ] "%SCRIPTDIR%..\dnscrypt-proxy\dnscrypt-proxy.exe"
+echo [ ] "%SCRIPTDIR%..\dnscrypt-proxy\%_ARCH%\dnscrypt-proxy.exe"

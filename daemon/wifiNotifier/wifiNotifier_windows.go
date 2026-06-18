@@ -385,7 +385,7 @@ static inline void setWifiNotifier()
 									NULL,
 									&pdwPrevNotifSource);
 	if(hResult!=ERROR_SUCCESS)
-		printf("failed WlanRegisterNotification=%d \n",hResult);
+		printf("failed WlanRegisterNotification=%lu \n",hResult);
 
 	while(TRUE){
 		Sleep(10);

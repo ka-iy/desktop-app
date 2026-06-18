@@ -80,7 +80,7 @@ $InstallerTmpDir  = Join-Path $InstallerOutDir 'temp'
 $InstallerNsiDir  = Join-Path $ScriptDir 'Installer'
 $Sha256ListFile   = Join-Path $InstallerNsiDir 'release-files-SHA256.txt'
 $DaemonRefsWin    = Join-Path $PathDaemonRepo 'References\Windows'
-$NativeDllsDir    = Join-Path $DaemonRefsWin   'Native Projects\bin\Release'
+$NativeDllsDir    = Join-Path $DaemonRefsWin   'Native Projects\bin\Release\x64'
 $UiDistUnpacked   = Join-Path $PathUiRepo       'dist\win-unpacked'
 
 # ---------------------------------------------------------------------------
@@ -138,14 +138,14 @@ $WireGuardBin= Join-Path $DaemonRefsWin  'WireGuard\x86_64'
 $IvpnBinaries = @(
     [pscustomobject]@{ Src = "$DaemonBin\IVPN Service.exe";                              TmpRel = 'IVPN Service.exe' }
     [pscustomobject]@{ Src = "$CliBin\ivpn.exe";                                         TmpRel = 'cli\ivpn.exe' }
-    [pscustomobject]@{ Src = "$OpenVpnRefs\obfsproxy\obfs4proxy.exe";                    TmpRel = 'OpenVPN\obfsproxy\obfs4proxy.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\v2ray\v2ray.exe";                           TmpRel = 'v2ray\v2ray.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\dnscrypt-proxy\dnscrypt-proxy.exe";         TmpRel = 'dnscrypt-proxy\dnscrypt-proxy.exe' }
-    [pscustomobject]@{ Src = "$WireGuardBin\wg.exe";                                     TmpRel = 'WireGuard\x86_64\wg.exe' }
-    [pscustomobject]@{ Src = "$WireGuardBin\wireguard.exe";                              TmpRel = 'WireGuard\x86_64\wireguard.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\kem\kem-helper.exe";                        TmpRel = 'kem\kem-helper.exe' }
-    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Helpers Native x64.dll";               TmpRel = 'IVPN Helpers Native x64.dll' }
-    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Firewall Native x64.dll";              TmpRel = 'IVPN Firewall Native x64.dll' }
+    [pscustomobject]@{ Src = "$OpenVpnRefs\obfsproxy\x86_64\obfs4proxy.exe";             TmpRel = 'OpenVPN\obfsproxy\x86_64\obfs4proxy.exe' }
+    [pscustomobject]@{ Src = "$DaemonRefsWin\v2ray\x86_64\v2ray.exe";                   TmpRel = 'v2ray\x86_64\v2ray.exe' }
+    [pscustomobject]@{ Src = "$DaemonRefsWin\dnscrypt-proxy\x86_64\dnscrypt-proxy.exe"; TmpRel = 'dnscrypt-proxy\x86_64\dnscrypt-proxy.exe' }
+    [pscustomobject]@{ Src = "$WireGuardBin\wg.exe";                                    TmpRel = 'WireGuard\x86_64\wg.exe' }
+    [pscustomobject]@{ Src = "$WireGuardBin\wireguard.exe";                             TmpRel = 'WireGuard\x86_64\wireguard.exe' }
+    [pscustomobject]@{ Src = "$DaemonRefsWin\kem\x86_64\kem-helper.exe";               TmpRel = 'kem\x86_64\kem-helper.exe' }
+    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Helpers Native.dll";               TmpRel = 'IVPN Helpers Native.dll' }
+    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Firewall Native.dll";              TmpRel = 'IVPN Firewall Native.dll' }
     # Electron UI binary - signed in source location, then the staging copy (already
     # renamed to "IVPN Client.exe" by build.bat) is overwritten with the signed version.
     [pscustomobject]@{ Src = "$UiDistUnpacked\IVPN.exe";                                 TmpRel = 'ui\IVPN Client.exe' }

@@ -3,6 +3,7 @@ setlocal
 setlocal enabledelayedexpansion
 
 rem %1 - first argument may specify the folder where all the build operations must be done (if it empty - use current folder)
+rem %2 - target architecture: x86_64 | arm64 (default: host arch)
 
 rem Update this line if using another version of VisualStudio or it is installed in another location
 set _VS_VARS_BAT="C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat"
@@ -24,6 +25,13 @@ if "%1" == "" (
     )
 )
 
+rem Determine target architecture (x86_64 or arm64). Default: host arch.
+if "%~2" == "" (
+    if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
+) else (
+    set "_ARCH=%~2"
+)
+
 rem Output subfolder
 set _OUT_FOLDER=%_WORK_FOLDER%\kem-helper-bin
 set _OUT_FILE=%_OUT_FOLDER%\kem-helper.exe
@@ -37,22 +45,30 @@ call :compile_or_compile_liboqs_lib || goto :error
 call :compile_binary || goto :error
 
 :ensure_build_environment
-    if not defined VSCMD_VER (
-        goto :init_VS64_build_env
+    rem Map _ARCH to the MSVC vcvarsall argument for building on this host
+    if /I "%_ARCH%" == "arm64" (
+        if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set _VC_ARG=arm64     ) else ( set _VC_ARG=x64_arm64 )
+    ) else (
+        if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set _VC_ARG=arm64_x64 ) else ( set _VC_ARG=x64       )
     )
-   if "%VSCMD_ARG_TGT_ARCH%" NEQ "x64" (
-        goto :init_VS64_build_env
-    )    
+    if not defined VSCMD_VER (
+        goto :init_VS_build_env
+    )
+    if /I "%_ARCH%" == "arm64" (
+        if "%VSCMD_ARG_TGT_ARCH%" NEQ "arm64" goto :init_VS_build_env
+    ) else (
+        if "%VSCMD_ARG_TGT_ARCH%" NEQ "x64" goto :init_VS_build_env
+    )
     goto :eof
     
-    :init_VS64_build_env
-        echo [*] Initialising x64 VS build environment ...
+    :init_VS_build_env
+        echo [*] Initialising VS build environment ^(%_VC_ARG%^) ...
             if not exist %_VS_VARS_BAT% (
                 echo [!] File '%_VS_VARS_BAT%' not exists! 
                 echo [!] Please install Visual Studio or update file location in '%~f0'
                 goto :error
             )
-            call %_VS_VARS_BAT% x64 || goto :error
+            call %_VS_VARS_BAT% %_VC_ARG% || goto :error
 
     goto :eof
 
@@ -85,6 +101,19 @@ call :compile_binary || goto :error
     echo [*] liboqs: Configuring ...
     mkdir build && cd build
 
+    rem cmake with Ninja+MSVC sets CMAKE_SYSTEM_PROCESSOR from the PROCESSOR_ARCHITECTURE
+    rem environment variable (AMD64 on x64 host), overriding any -D flag we pass.
+    rem The correct mechanism for cross-compilation is a toolchain file: cmake respects
+    rem CMAKE_SYSTEM_PROCESSOR from it unconditionally.
+    if /I "%_ARCH%" == "arm64" (
+        set "_TOOLCHAIN_FILE=%_LIBOQS_FOLDER%\liboqs_arm64_toolchain.cmake"
+        echo set^(CMAKE_SYSTEM_NAME Windows^)  > "!_TOOLCHAIN_FILE!"
+        echo set^(CMAKE_SYSTEM_PROCESSOR arm64^) >> "!_TOOLCHAIN_FILE!"
+        set "_CMAKE_TOOLCHAIN=-DCMAKE_TOOLCHAIN_FILE=!_TOOLCHAIN_FILE!"
+    ) else (
+        set "_CMAKE_TOOLCHAIN="
+    )
+
     cmake -GNinja .. ^
         -DOQS_MINIMAL_BUILD="KEM_kyber_1024;KEM_classic_mceliece_348864;" ^
         -DCMAKE_BUILD_TYPE=Release ^
@@ -94,7 +123,7 @@ call :compile_binary || goto :error
         -DBUILD_SHARED_LIBS=OFF ^
         -DOQS_USE_OPENSSL=OFF ^
         -DOQS_DIST_BUILD=ON ^
-        -DOQS_USE_CPUFEATURE_INSTRUCTIONS=OFF ^
+        !_CMAKE_TOOLCHAIN! ^
 		^	|| goto :error	
 
     echo [*] liboqs: Compiling ...
@@ -121,11 +150,24 @@ call :compile_binary || goto :error
     rem The 'Classic-McEliece' consuming a lot of stack, so we specifying stack size manually: "/STACK:5242880"
     cl.exe main.c base64.c /nologo /DWIN32 /D_WINDOWS /W3 /MT /O2 /Ob2 /DNDEBUG  /I "%_LIBOQS_INSTALL_FOLDER%\include" /Fo"%_OUT_FOLDER%/" /link /STACK:5242880 /LIBPATH:"%_LIBOQS_INSTALL_FOLDER%\lib" oqs.lib Advapi32.lib /OUT:"%_OUT_FILE%" || goto :error    
     
-    dumpbin /headers "%_OUT_FILE%" | findstr /i "machine.*x64" >nul
+    dumpbin /headers "%_OUT_FILE%" | findstr /i "machine" >nul
     if not %errorlevel% equ 0 (
-        echo ERROR: Binary "%_OUT_FILE%" is not compiled for x64 architecture
+        echo ERROR: Binary "%_OUT_FILE%" - dumpbin check failed
         goto :error    
-    ) 
+    )
+    if /I "%_ARCH%" == "arm64" (
+        dumpbin /headers "%_OUT_FILE%" | findstr /i "machine.*arm" >nul
+        if not %errorlevel% equ 0 (
+            echo ERROR: Binary "%_OUT_FILE%" is not compiled for ARM64 architecture
+            goto :error    
+        )
+    ) else (
+        dumpbin /headers "%_OUT_FILE%" | findstr /i "machine.*x64" >nul
+        if not %errorlevel% equ 0 (
+            echo ERROR: Binary "%_OUT_FILE%" is not compiled for x64 architecture
+            goto :error    
+        )
+    )
 
     goto :success
 

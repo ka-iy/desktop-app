@@ -7,11 +7,18 @@ set _VERSION=obfs4proxy-0.0.14
 
 set SCRIPTDIR=%~dp0
 
-if exist "%SCRIPTDIR%..\OpenVPN\obfsproxy" (
-  echo [*] Erasing OpenVPN\obfsproxy\*.exe ...
-  del /f /q /s "%SCRIPTDIR%..\OpenVPN\obfsproxy\*.exe"  >nul 2>&1 || exit /b 1
+rem Determine target architecture (x86_64 or arm64). Default: host arch.
+if "%~1" == "" (
+    if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
 ) else (
-  mkdir "%SCRIPTDIR%..\OpenVPN\obfsproxy" || exit /b 1
+    set "_ARCH=%~1"
+)
+
+if exist "%SCRIPTDIR%..\OpenVPN\obfsproxy\%_ARCH%" (
+  echo [*] Erasing OpenVPN\obfsproxy\%_ARCH%\*.exe ...
+  del /f /q "%SCRIPTDIR%..\OpenVPN\obfsproxy\%_ARCH%\obfs4proxy.exe"  >nul 2>&1
+) else (
+  mkdir "%SCRIPTDIR%..\OpenVPN\obfsproxy\%_ARCH%" || exit /b 1
 )
 
 if exist "%SCRIPTDIR%..\.deps\obfsproxy" (
@@ -30,10 +37,12 @@ cd obfs4
 echo [*] Checkout version '%_VERSION%'' of obfs4proxy..."
 git checkout tags/%_VERSION%
 
-echo [*] Compiling obfs4proxy ...
+echo [*] Compiling obfs4proxy (%_ARCH%) ...
 
-go build -o "%SCRIPTDIR%..\OpenVPN\obfsproxy\obfs4proxy.exe" -trimpath -ldflags "-s -w" ./obfs4proxy >nul 2>&1 || exit /b 1
+if /I "%_ARCH%" == "arm64" ( set "GOARCH=arm64" ) else ( set "GOARCH=amd64" )
+set "GOOS=windows"
+go build -o "%SCRIPTDIR%..\OpenVPN\obfsproxy\%_ARCH%\obfs4proxy.exe" -trimpath -ldflags "-s -w" ./obfs4proxy || exit /b 1
 
 echo [ ] SUCCESS
 echo [ ] The compiled 'obfs4proxy.exe' binary located at:
-echo [ ] "%SCRIPTDIR%..\OpenVPN\obfsproxy\obfs4proxy.exe"
+echo [ ] "%SCRIPTDIR%..\OpenVPN\obfsproxy\%_ARCH%\obfs4proxy.exe"

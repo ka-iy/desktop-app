@@ -116,6 +116,7 @@ goto :success
 	set BIN_FOLDER_SERVICE=%SERVICE_REPO%\bin\x86_64\
 	set BIN_FOLDER_SERVICE_COMMON_REFS=%SERVICE_REPO%\References\common\
 	set BIN_FOLDER_SERVICE_REFS=%SERVICE_REPO%\References\Windows\
+	set BIN_FOLDER_NATIVE_DLLS=%SERVICE_REPO%\References\Windows\Native Projects\bin\Release\x64\
 	set BIN_FOLDER_CLI=%CLI_REPO%\bin\x86_64\
 
 	set FILES_TO_INTEGRATE=%FILE_LIST%
@@ -133,6 +134,7 @@ goto :success
 		if exist "%BIN_FOLDER_CLI%%%i" set SRCPATH=%BIN_FOLDER_CLI%%%i
 		if exist "%BIN_FOLDER_SERVICE_COMMON_REFS%%%i" set SRCPATH=%BIN_FOLDER_SERVICE_COMMON_REFS%%%i
 		if exist "%BIN_FOLDER_SERVICE_REFS%%%i" set SRCPATH=%BIN_FOLDER_SERVICE_REFS%%%i
+		if exist "%BIN_FOLDER_NATIVE_DLLS%%%i" set SRCPATH=%BIN_FOLDER_NATIVE_DLLS%%%i
 		if exist "%BIN_FOLDER_APP%%%i"  set SRCPATH=%BIN_FOLDER_APP%%%i
 		if exist "%SCRIPTDIR%Installer\%%i" set SRCPATH=%SCRIPTDIR%Installer\%%i
 		if !SRCPATH! == ??? (
@@ -154,13 +156,11 @@ goto :success
 	goto :eof
 
 :success
-	goto :remove_tmp_vars_before_exit
+	endlocal
+	exit /b 0
 
 :error
-	goto :remove_tmp_vars_before_exit
-	echo [!] IVPN Client installer build FAILED with error #%errorlevel%.
-	exit /b %errorlevel%
-
-:remove_tmp_vars_before_exit
-	endlocal
-	goto :eof
+	set ERR=%errorlevel%
+	if %ERR% == 0 set ERR=1
+	echo [!] IVPN Client installer build FAILED with error #%ERR%.
+	endlocal & exit /b %ERR%
