@@ -5,7 +5,8 @@ set SCRIPTDIR=%~dp0
 
 rem Determine target architecture (x86_64, arm64, or "all"). Default: host arch.
 if "%~1" == "" (
-    if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
+    set "_ARCH=all"
+    rem if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
 ) else (
     set "_ARCH=%~1"
 )
@@ -19,8 +20,14 @@ echo.
 if /I "%_ARCH%" == "all" (
     call :clean_arch x86_64
     call :clean_arch arm64
-) else (
+) else if /I "%_ARCH%" == "x86_64"  (
     call :clean_arch %_ARCH%
+) else if /I "%_ARCH%" == "arm64"  (
+    call :clean_arch %_ARCH%
+) else (
+    echo [!] Invalid architecture: %_ARCH%
+    echo [!] Supported: all, x86_64, arm64
+    exit /b 1
 )
 
 echo [*] Cleaning .deps ...
