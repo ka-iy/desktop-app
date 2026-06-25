@@ -67,3 +67,19 @@ OpenVPN\obfsproxy\obfs4proxy.exe                   = daemon\References\Windows\O
 [x86_64] OpenVPN\tap\tapivpn.sys                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.sys
 
 [x86_64] SplitTunnelDriver\ivpn-split-tunnel.sys   = daemon\References\Windows\SplitTunnelDriver\{ARCH}\ivpn-split-tunnel.sys
+
+
+; -------------------------------------------------------------------------
+; arm64 only 
+; -------------------------------------------------------------------------
+[arm64] OpenVPN\openvpn.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openvpn.exe
+[arm64] OpenVPN\openssl.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openssl.exe
+[arm64] OpenVPN\libcrypto-3-arm64.dll             = daemon\References\Windows\OpenVPN\{ARCH}\libcrypto-3-arm64.dll
+[arm64] OpenVPN\libpkcs11-helper-1.dll            = daemon\References\Windows\OpenVPN\{ARCH}\libpkcs11-helper-1.dll
+[arm64] OpenVPN\libssl-3-arm64.dll                = daemon\References\Windows\OpenVPN\{ARCH}\libssl-3-arm64.dll
+[arm64] OpenVPN\vcruntime140.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll
+[arm64] OpenVPN\tap\OemVista.inf                  = daemon\References\Windows\OpenVPN\{ARCH}\tap\OemVista.inf
+[arm64] OpenVPN\tap\tap0901.cat                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tap0901.cat
+[arm64] OpenVPN\tap\tap0901.sys                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tap0901.sys
+; devcon.exe (ARM64) depends on VCRUNTIME140.dll
+[arm64] devcon\vcruntime140.dll                   = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll

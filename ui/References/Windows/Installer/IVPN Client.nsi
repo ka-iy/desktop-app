@@ -33,7 +33,11 @@ ${StrLoc}
 !define PATHDIR "$INSTDIR\cli"
 
 !define DEVCON_BASENAME "devcon.exe"
-!define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
+!ifdef TARGET_ARM64
+  !define PRODUCT_TAP_WIN_COMPONENT_ID "tap0901" ; Temporary solution (ARM build use not-custom TAP driver).
+!else
+  !define PRODUCT_TAP_WIN_COMPONENT_ID "tapivpn"
+!endif
 ;!define DRIVER_SPLIT_TUNNEL_ID "root\ivpn-split-tunnel"
 
 ; The following variables will be set from the build.bat script
@@ -379,10 +383,34 @@ Section "${PRODUCT_NAME}" SecIVPN
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\Uninstall ${PRODUCT_NAME}.lnk" "$INSTDIR\Uninstall.exe"
   CreateShortCut "$SMPROGRAMS\$StartMenuFolder\${PRODUCT_NAME}.lnk" "$INSTDIR\ui\IVPN Client.exe"
 
-  !ifndef TARGET_ARM64
   ; ============ TAP driver ======================================================================
   DetailPrint "Installing TAP Driver..."
 
+  !ifdef TARGET_ARM64 ; Temporary solution (ARM build use not-custom TAP driver)
+  ; ARM64 uses the shared official tap0901 driver (also used by official OpenVPN).
+  ; Only install if not already present - never update or overwrite an existing installation.
+  ; NOTE: devcon hwids returns exit code 0 regardless of whether devices are found or not.
+  ;       Presence must be determined by checking the output text for the component ID.
+  nsExec::ExecToStack '"$INSTDIR\devcon\${DEVCON_BASENAME}" hwids ${PRODUCT_TAP_WIN_COMPONENT_ID}'
+  Pop $R0 ; exit code
+  Pop $R1 ; output text
+  DetailPrint "${DEVCON_BASENAME} hwids returned: $R0"
+  ${StrContains} $R2 "${PRODUCT_TAP_WIN_COMPONENT_ID}" $R1
+  ${If} $R2 != ""
+    DetailPrint "TAP driver (${PRODUCT_TAP_WIN_COMPONENT_ID}) already installed - skipping."
+  ${Else}
+    DetailPrint "TAP driver not present, installing (${PRODUCT_TAP_WIN_COMPONENT_ID})..."
+    nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" install "$INSTDIR\OpenVPN\tap\OemVista.inf" ${PRODUCT_TAP_WIN_COMPONENT_ID}'
+    Pop $R0
+    DetailPrint "${DEVCON_BASENAME} install returned: $R0"
+    ${If} $R0 != 0
+      MessageBox MB_OK "An error occurred installing the TAP device driver."
+      Abort
+    ${EndIf}
+  ${EndIf}
+  !else
+    
+  ; x86_64: uses custom tapivpn driver owned exclusively by IVPN - always install/update.
   ; check if TUN/TAP driver is installed
   IntOp $R5 0 & 0
   nsExec::ExecToStack '"$INSTDIR\devcon\${DEVCON_BASENAME}" hwids ${PRODUCT_TAP_WIN_COMPONENT_ID}'
@@ -544,10 +572,15 @@ Section "Uninstall"
   nsExec::ExecToLog '"$INSTDIR\ivpncli.exe" firewall disable'
 
   ; uninstall TUN/TAP driver
+
+  ; On ARM64 we use the shared official tap0901 driver (also used by OpenVPN).
+  ; Removing it would break any existing OpenVPN installation, so we skip it.
+  !ifndef TARGET_ARM64 ; Temporary solution (ARM build use not-custom TAP driver)
   DetailPrint "Removing TUN/TAP device..."
   nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
+  !endif ; TARGET_ARM64 ; Temporary solution (ARM build use not-custom TAP driver). 
 
   ;; uninstall Split-Tunnell driver
   ;DetailPrint "Removing Split-Tunnell driver..."
