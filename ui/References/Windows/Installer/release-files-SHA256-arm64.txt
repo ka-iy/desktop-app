@@ -1,0 +1,3 @@
+; ARM64 vendor file checksums.
+; Add entries for pre-built ARM64 vendor binaries checked into the repo.
+; Format: <relative-path> : <sha256hex> : <optional comment>

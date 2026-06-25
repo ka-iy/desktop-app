@@ -1,0 +1,30 @@
+; IVPN Windows CI Build Test Manifest
+; Minimal file set used in GitHub Actions CI builds.
+; Skips files that require full native compilation (native DLLs, full OpenVPN stack).
+; Same format as release-manifest.txt.
+
+; -------------------------------------------------------------------------
+; Common to all architectures
+; -------------------------------------------------------------------------
+icon.ico                                           = ui\References\Windows\Installer\icon.ico
+IVPN Service.exe                                   = daemon\bin\{ARCH}\IVPN Service.exe
+cli\ivpn.exe                                       = cli\bin\{ARCH}\cli\ivpn.exe
+etc\ca.crt                                         = daemon\References\common\etc\ca.crt
+etc\servers.json                                   = daemon\References\common\etc\servers.json
+etc\ta.key                                         = daemon\References\common\etc\ta.key
+devcon\devcon.exe                                  = ui\References\Windows\Installer\devcon\{ARCH}\devcon.exe
+
+; -------------------------------------------------------------------------
+; x86_64 only
+; -------------------------------------------------------------------------
+[x86_64] OpenVPN\libpkcs11-helper-1.dll            = daemon\References\Windows\OpenVPN\{ARCH}\libpkcs11-helper-1.dll
+[x86_64] OpenVPN\openssl.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openssl.exe
+[x86_64] OpenVPN\openvpn.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openvpn.exe
+[x86_64] OpenVPN\libssl-3-x64.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\libssl-3-x64.dll
+[x86_64] OpenVPN\libcrypto-3-x64.dll               = daemon\References\Windows\OpenVPN\{ARCH}\libcrypto-3-x64.dll
+[x86_64] OpenVPN\vcruntime140.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll
+[x86_64] OpenVPN\tap\license.txt                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\license.txt
+[x86_64] OpenVPN\tap\OemVista.inf                  = daemon\References\Windows\OpenVPN\{ARCH}\tap\OemVista.inf
+[x86_64] OpenVPN\tap\tapivpn.cat                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.cat
+[x86_64] OpenVPN\tap\tapivpn.sys                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.sys
+[x86_64] SplitTunnelDriver\ivpn-split-tunnel.sys  = daemon\References\Windows\SplitTunnelDriver\{ARCH}\ivpn-split-tunnel.sys

@@ -41,7 +41,16 @@ func doOsInitForBuild() {
 	installDir := getInstallDir()
 	wfpDllPath = path.Join(installDir, "IVPN Firewall Native.dll")
 	nativeHelpersDllPath = path.Join(installDir, "IVPN Helpers Native.dll")
-	splitTunDriverPath = path.Join(installDir, "SplitTunnelDriver", "x86_64", "ivpn-split-tunnel.sys")
+	splitTunDriverPath = path.Join(installDir, "SplitTunnelDriver", "ivpn-split-tunnel.sys")
+
+	// In release builds, vendor binaries are in a flat structure (no arch subdirs)
+	openVpnBinaryPath = path.Join(installDir, "OpenVPN", "openvpn.exe")
+	obfsproxyStartScript = path.Join(installDir, "OpenVPN", "obfsproxy", "obfs4proxy.exe")
+	v2rayBinaryPath = path.Join(installDir, "v2ray", "v2ray.exe")
+	wgBinaryPath = path.Join(installDir, "WireGuard", "wireguard.exe")
+	wgToolBinaryPath = path.Join(installDir, "WireGuard", "wg.exe")
+	dnscryptproxyBinPath = path.Join(installDir, "dnscrypt-proxy", "dnscrypt-proxy.exe")
+	kemHelperBinaryPath = path.Join(installDir, "kem", "kem-helper.exe")
 }
 
 func getInstallDir() string {

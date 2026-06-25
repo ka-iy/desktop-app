@@ -47,7 +47,9 @@
 #>
 
 param(
-    [string]$CertSha1 = $env:CERT_SHA1
+    [string]$CertSha1 = $env:CERT_SHA1,
+    [ValidateSet('x86_64', 'arm64')]
+    [string]$Arch = 'x86_64'
 )
 
 Set-StrictMode -Version Latest
@@ -76,9 +78,7 @@ $PathCliRepo    = [System.IO.Path]::GetFullPath("$PathUiRepo\..\cli")
 
 $PackageJson      = Join-Path $PathUiRepo 'package.json'
 $InstallerOutDir  = Join-Path $ScriptDir 'bin'
-$InstallerTmpDir  = Join-Path $InstallerOutDir 'temp'
 $InstallerNsiDir  = Join-Path $ScriptDir 'Installer'
-$Sha256ListFile   = Join-Path $InstallerNsiDir 'release-files-SHA256.txt'
 $DaemonRefsWin    = Join-Path $PathDaemonRepo 'References\Windows'
 $NativeDllsDir    = Join-Path $DaemonRefsWin   'Native Projects\bin\Release\x64'
 $UiDistUnpacked   = Join-Path $PathUiRepo       'dist\win-unpacked'
@@ -94,11 +94,28 @@ if ([string]::IsNullOrWhiteSpace($version)) {
     Write-Host "[!] Could not read 'version' from $PackageJson"; exit 1
 }
 
-$InstallerFile = Join-Path $InstallerOutDir "IVPN-Client-v${version}.exe"
+$InstallerFile = if ($Arch -eq 'arm64') {
+    Join-Path $InstallerOutDir "IVPN-Client-v${version}-arm64.exe"
+} else {
+    Join-Path $InstallerOutDir "IVPN-Client-v${version}.exe"
+}
+
+$InstallerTmpDir = if ($Arch -eq 'arm64') {
+    Join-Path $InstallerOutDir 'temp-arm64'
+} else {
+    Join-Path $InstallerOutDir 'temp'
+}
+
+$Sha256ListFile = if ($Arch -eq 'arm64') {
+    Join-Path $InstallerNsiDir 'release-files-SHA256-arm64.txt'
+} else {
+    Join-Path $InstallerNsiDir 'release-files-SHA256.txt'
+}
 
 $Signing = -not [string]::IsNullOrWhiteSpace($CertSha1)
 
 Write-Host "    APPVER       : $version"
+Write-Host "    ARCH         : $Arch"
 Write-Host "    CERT_SHA1    : $(if ($Signing) { $CertSha1 } else { '(not set - unsigned build)' })"
 Write-Host ""
 
@@ -113,7 +130,7 @@ if (-not (Test-Path $MAKENSIS)) {
 
 if ($Signing -and -not (Get-Command signtool -ErrorAction SilentlyContinue)) {
     Write-Host "[!] 'signtool' not found in PATH."
-    Write-Host "    Run this script from 'Developer PowerShell for VS 2022'."
+    Write-Host "    Run this script from 'Developer PowerShell for VS'."
     exit 1
 }
 
@@ -124,32 +141,80 @@ if (-not (Test-Path $InstallerTmpDir -PathType Container)) {
 }
 
 # ---------------------------------------------------------------------------
-# IVPN-owned binaries to sign.
-# Vendor pre-signed binaries (OpenVPN, OpenSSL DLLs, TAP driver, devcon) are
-# intentionally omitted - re-signing them would invalidate their vendor signatures.
+# Validate all required files from manifest are staged
 # ---------------------------------------------------------------------------
-$DaemonBin   = Join-Path $PathDaemonRepo 'bin\x86_64'
-$CliBin      = Join-Path $PathCliRepo    'bin\x86_64\cli'
-$OpenVpnRefs = Join-Path $DaemonRefsWin  'OpenVPN'
-$WireGuardBin= Join-Path $DaemonRefsWin  'WireGuard\x86_64'
+function Test-StagedFiles {
+    param([string]$ManifestFile, [string]$StagingDir, [string]$TargetArch)
+    
+    Write-Host "[*] Validating staged files from manifest ..."
+    $missing = @()
+    $validated = 0
+    
+    foreach ($line in (Get-Content $ManifestFile)) {
+        if ([string]::IsNullOrWhiteSpace($line) -or $line.TrimStart().StartsWith(';')) { continue }
+        
+        # Handle arch-specific lines: [x86_64] or [arm64]
+        $archFilter = $null
+        if ($line -match '^\[(x86_64|arm64)\]\s+(.+)$') {
+            $archFilter = $Matches[1]
+            $line = $Matches[2]
+            if ($archFilter -ne $TargetArch) { continue }
+        }
+        
+        # Parse DEST[=SOURCE] format - we only care about DEST
+        $dest = ($line -split '=', 2)[0].Trim()
+        if ([string]::IsNullOrWhiteSpace($dest)) { continue }
+        
+        $validated++
+        $filePath = Join-Path $StagingDir $dest
+        if (-not (Test-Path $filePath)) {
+            $missing += $dest
+        }
+    }
+    
+    if ($missing.Count -gt 0) {
+        Write-Host ""
+        Write-Host "[!] Missing files in staging directory:"
+        $missing | ForEach-Object { Write-Host "      $_" }
+        Write-Host ""
+        Write-Host "    Run build.bat first to stage all required files."
+        return $false
+    }
+    
+    $fileCount = (Get-ChildItem $StagingDir -Recurse -File | Measure-Object).Count
+    Write-Host "    All required files present ($validated validated, $fileCount files total)."
+    return $true
+}
 
-# Each entry: Src = source path used for signtool; TmpRel = relative path inside
-# InstallerTmpDir (as laid down by build.bat's copy_files step).
-$IvpnBinaries = @(
-    [pscustomobject]@{ Src = "$DaemonBin\IVPN Service.exe";                              TmpRel = 'IVPN Service.exe' }
-    [pscustomobject]@{ Src = "$CliBin\ivpn.exe";                                         TmpRel = 'cli\ivpn.exe' }
-    [pscustomobject]@{ Src = "$OpenVpnRefs\obfsproxy\x86_64\obfs4proxy.exe";             TmpRel = 'OpenVPN\obfsproxy\x86_64\obfs4proxy.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\v2ray\x86_64\v2ray.exe";                   TmpRel = 'v2ray\x86_64\v2ray.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\dnscrypt-proxy\x86_64\dnscrypt-proxy.exe"; TmpRel = 'dnscrypt-proxy\x86_64\dnscrypt-proxy.exe' }
-    [pscustomobject]@{ Src = "$WireGuardBin\wg.exe";                                    TmpRel = 'WireGuard\x86_64\wg.exe' }
-    [pscustomobject]@{ Src = "$WireGuardBin\wireguard.exe";                             TmpRel = 'WireGuard\x86_64\wireguard.exe' }
-    [pscustomobject]@{ Src = "$DaemonRefsWin\kem\x86_64\kem-helper.exe";               TmpRel = 'kem\x86_64\kem-helper.exe' }
-    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Helpers Native.dll";               TmpRel = 'IVPN Helpers Native.dll' }
-    [pscustomobject]@{ Src = "$NativeDllsDir\IVPN Firewall Native.dll";              TmpRel = 'IVPN Firewall Native.dll' }
-    # Electron UI binary - signed in source location, then the staging copy (already
-    # renamed to "IVPN Client.exe" by build.bat) is overwritten with the signed version.
-    [pscustomobject]@{ Src = "$UiDistUnpacked\IVPN.exe";                                 TmpRel = 'ui\IVPN Client.exe' }
-)
+$ManifestFile = Join-Path $InstallerNsiDir 'release-manifest.txt'
+if (-not (Test-StagedFiles -ManifestFile $ManifestFile -StagingDir $InstallerTmpDir -TargetArch $Arch)) {
+    exit 1
+}
+Write-Host ""
+
+# ---------------------------------------------------------------------------
+# Binaries to sign in the staging directory.
+# All IVPN-compiled binaries (including vendor tools built from source) are signed.
+# Only truly pre-compiled (and pre-signed) binaries are excluded.
+# ---------------------------------------------------------------------------
+# Helper function to build list of binaries to sign in staging directory.
+function Get-BinariesToSign {
+    return @(
+        Join-Path $InstallerTmpDir 'IVPN Service.exe'
+        Join-Path $InstallerTmpDir 'cli\ivpn.exe'
+        Join-Path $InstallerTmpDir 'OpenVPN\obfsproxy\obfs4proxy.exe'
+        Join-Path $InstallerTmpDir 'v2ray\v2ray.exe'
+        Join-Path $InstallerTmpDir 'dnscrypt-proxy\dnscrypt-proxy.exe'
+        Join-Path $InstallerTmpDir 'WireGuard\wg.exe'
+        Join-Path $InstallerTmpDir 'WireGuard\wireguard.exe'
+        Join-Path $InstallerTmpDir 'kem\kem-helper.exe'
+        Join-Path $InstallerTmpDir 'IVPN Helpers Native.dll'
+        Join-Path $InstallerTmpDir 'IVPN Firewall Native.dll'
+        Join-Path $InstallerTmpDir 'ui\IVPN Client.exe'
+    )
+}
+
+$BinariesToSign = Get-BinariesToSign
 
 # ---------------------------------------------------------------------------
 # Helper: sign one or more files in a single signtool invocation.
@@ -169,19 +234,19 @@ function Invoke-Sign([string[]]$FilePaths) {
 # ---------------------------------------------------------------------------
 if ($Signing) {
 
-    # Phase 1 - Validate all source binaries exist before touching the dongle
-    Write-Host "[*] Validating build outputs ..."
+    # Phase 1 - Validate all staged binaries exist before touching the dongle
+    Write-Host "[*] Validating binaries to sign ..."
     $missing = @()
-    foreach ($b in $IvpnBinaries) {
-        if (-not (Test-Path $b.Src)) { $missing += $b.Src }
+    foreach ($file in $BinariesToSign) {
+        if (-not (Test-Path $file)) { $missing += $file }
     }
     if ($missing.Count -gt 0) {
         Write-Host ""
-        Write-Host "[!] Missing binaries - run build.bat first:"
+        Write-Host "[!] Missing binaries to sign - run build.bat first:"
         $missing | ForEach-Object { Write-Host "      $_" }
         exit 1
     }
-    Write-Host "    All binaries present."
+    Write-Host "    All binaries to sign are present."
     Write-Host ""
 
     # Phase 2 - Single dongle prompt
@@ -189,20 +254,9 @@ if ($Signing) {
     $null = Read-Host
     Write-Host ""
 
-    # Phase 3 - Sign all IVPN-owned binaries in one signtool call (single PIN prompt)
-    Write-Host "[*] Signing IVPN binaries ..."
-    Invoke-Sign ($IvpnBinaries | ForEach-Object { $_.Src })
-    Write-Host ""
-
-    # Phase 4 - Overwrite staging copies with signed versions
-    Write-Host "[*] Updating staging directory with signed binaries ..."
-    foreach ($b in $IvpnBinaries) {
-        $dest = Join-Path $InstallerTmpDir $b.TmpRel
-        $destDir = Split-Path $dest -Parent
-        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
-        Copy-Item -Path $b.Src -Destination $dest -Force
-        Write-Host "    $($b.TmpRel)"
-    }
+    # Phase 3 - Sign IVPN-built binaries directly in staging (single PIN prompt)
+    Write-Host "[*] Signing IVPN binaries in staging directory ..."
+    Invoke-Sign $BinariesToSign
     Write-Host ""
 }
 
@@ -212,6 +266,8 @@ if ($Signing) {
 Write-Host "[*] Verifying vendor file checksums ..."
 foreach ($line in (Get-Content $Sha256ListFile)) {
     # Format: <relative-path> : <sha256> : <optional comment>
+    if ([string]::IsNullOrWhiteSpace($line)) { continue }
+    if ($line.TrimStart().StartsWith(';'))    { continue }
     $parts = $line -split '\s*:\s*', 3
     if ($parts.Count -lt 2) { continue }
     $relPath  = $parts[0].Trim()
@@ -259,10 +315,20 @@ if ($Signing) {
 Write-Host "[*] Building installer ..."
 if (Test-Path $InstallerFile) { Remove-Item $InstallerFile -Force }
 
+$nsisArgs = @(
+    "/DPRODUCT_VERSION=$version",
+    "/DOUT_FILE=$InstallerFile",
+    "/DSOURCE_DIR=$InstallerTmpDir"
+)
+if ($Arch -eq 'arm64') {
+    $nsisArgs += '/DTARGET_ARCH=arm64'
+    $nsisArgs += '/DTARGET_ARM64'
+}
+
 $prevLocation = Get-Location
 Set-Location $InstallerNsiDir
 try {
-    & $MAKENSIS /DPRODUCT_VERSION=$version "/DOUT_FILE=$InstallerFile" "/DSOURCE_DIR=$InstallerTmpDir" "IVPN Client.nsi"
+    & $MAKENSIS @nsisArgs "IVPN Client.nsi"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[!] NSIS failed (exit code $LASTEXITCODE)."; exit $LASTEXITCODE
     }
@@ -288,15 +354,15 @@ if ($Signing) {
 # Summary
 # ---------------------------------------------------------------------------
 if ($Signing) {
-    Write-Host "[*] Release packaging complete. Signed outputs:"
+    Write-Host "[*] Release packaging complete. Signed IVPN-built binaries:"
     Write-Host ""
-    foreach ($b in $IvpnBinaries) { Write-Host "  $($b.Src)" }
+    foreach ($file in $BinariesToSign) { Write-Host "  $file" }
     Write-Host ""
-    Write-Host "  Installer : $InstallerFile"
+    Write-Host "  Installer ($Arch) : $InstallerFile"
 } else {
     Write-Host "[*] Installer built (unsigned)."
     Write-Host ""
-    Write-Host "  Installer : $InstallerFile"
+    Write-Host "  Installer ($Arch) : $InstallerFile"
     Write-Host ""
     Write-Host "  NOTE: Binaries and installer are NOT signed."
     Write-Host "        To produce a signed release, set CERT_SHA1 and re-run this script."
