@@ -93,17 +93,21 @@ func implSetEnabled(isEnabled bool) (retErr error) {
 	}
 	// do not forget to stop transaction
 	defer func() {
-		if r := recover(); r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFPtransaction
-
+		if r := recover(); r != nil {
+			// Handle panic - abort transaction
+			manager.TransactionAbort()
 			log.Error("PANIC (recovered): ", r)
 			if e, ok := r.(error); ok {
 				retErr = e
 			} else {
 				retErr = errors.New(fmt.Sprint(r))
 			}
+		} else if retErr != nil {
+			// Handle normal error - abort transaction
+			manager.TransactionAbort()
+		} else {
+			// Success - commit transaction
+			manager.TransactionCommit()
 		}
 	}()
 
@@ -332,12 +336,7 @@ func doEnable() (retErr error) {
 			}
 		}
 
-		// block DNS
-		_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKey, layer, sublayerKey, sublayerDName, "Block DNS", isPersistant))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'block dns': %w", err)
-		}
-
+		// allow loopback (localhost) - to allow communication with localhost services)
 		ipv6loopback := net.IP{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}     // LOOPBACK 		::1/128
 		ipv6llocal := net.IP{0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0} // LINKLOCAL		fe80::/10 // TODO: "fe80::/10" is already part of localAddressesV6. To think: do we need it here?
 
@@ -348,6 +347,12 @@ func doEnable() (retErr error) {
 		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIPV6(providerKey, layer, sublayerKey, filterDName, "", ipv6llocal, 10, isPersistant))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow remote IP' for ipv6llocal: %w", err)
+		}
+
+		// block DNS
+		_, err = manager.AddFilter(winlib.NewFilterBlockDNS(providerKey, layer, sublayerKey, sublayerDName, "Block DNS", isPersistant))
+		if err != nil {
+			return fmt.Errorf("failed to add filter 'block dns': %w", err)
 		}
 
 		// LAN
@@ -397,6 +402,12 @@ func doEnable() (retErr error) {
 			if err != nil {
 				return fmt.Errorf("failed to add boot-time filter 'block all': %w", err)
 			}
+		}
+
+		// Loopback (localhost) - to allow communication with localhost services)
+		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "", net.ParseIP("127.0.0.1"), net.IPv4(255, 0, 0, 0), isPersistant))
+		if err != nil {
+			return fmt.Errorf("failed to add filter 'allow remote IP': %w", err)
 		}
 
 		// Block all DNS requests
@@ -459,12 +470,6 @@ func doEnable() (retErr error) {
 		_, err = manager.AddFilter(winlib.NewFilterAllowApplication(providerKey, layer, sublayerKey, sublayerDName, "", dnscryptProxyBin, isPersistant))
 		if err != nil {
 			return fmt.Errorf("failed to add filter 'allow application - dnscrypt-proxy': %w", err)
-		}
-
-		// Loopback (localhost) - to allow communication with localhost services)
-		_, err = manager.AddFilter(winlib.NewFilterAllowRemoteIP(providerKey, layer, sublayerKey, filterDName, "", net.ParseIP("127.0.0.1"), net.IPv4(255, 0, 0, 0), isPersistant))
-		if err != nil {
-			return fmt.Errorf("failed to add filter 'allow remote IP': %w", err)
 		}
 
 		// LAN
@@ -689,17 +694,21 @@ func implSingleDnsRuleOn(dnsAddresses []net.IP) (retErr error) {
 	}
 	// do not forget to stop transaction
 	defer func() {
-		if r := recover(); r == nil {
-			manager.TransactionCommit() // commit WFP transaction
-		} else {
-			manager.TransactionAbort() // abort WFPtransaction
-
+		if r := recover(); r != nil {
+			// Handle panic - abort transaction
+			manager.TransactionAbort()
 			log.Error("PANIC (recovered): ", r)
 			if e, ok := r.(error); ok {
 				retErr = e
 			} else {
 				retErr = errors.New(fmt.Sprint(r))
 			}
+		} else if retErr != nil {
+			// Handle normal error - abort transaction
+			manager.TransactionAbort()
+		} else {
+			// Success - commit transaction
+			manager.TransactionCommit()
 		}
 	}()
 
