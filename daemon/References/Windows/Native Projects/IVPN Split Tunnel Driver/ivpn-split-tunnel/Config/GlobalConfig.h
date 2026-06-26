@@ -1,6 +1,8 @@
 #pragma once
 
+#include <ntddk.h>
 #include "../public.h"
+#include "../Trace.h"
 #include "../QueueIoctlProtocol/Types.h"
 #include <minwindef.h>
 

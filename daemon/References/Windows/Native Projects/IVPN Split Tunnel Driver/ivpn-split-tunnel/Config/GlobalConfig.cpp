@@ -50,7 +50,7 @@ namespace cfg
 	)
 	{
 		UNREFERENCED_PARAMETER(Table);
-		return ExAllocatePoolWithTag(NonPagedPool, ByteSize, POOL_TAG);
+		return ExAllocatePool2(POOL_FLAG_NON_PAGED, ByteSize, POOL_TAG);
 	}
 
 	VOID _freeRoutine(
@@ -234,10 +234,10 @@ namespace cfg
 			DWORD strLen = *(DWORD*)(buff + sizeof(DWORD) + sizeof(DWORD) + sizeof(DWORD) * i);
 			
 			ImageInfo ii = {};
-			
+
 			ii.ImagePath.Length = (USHORT) strLen * sizeof(WCHAR);
 			ii.ImagePath.MaximumLength = ii.ImagePath.Length;
-			ii.ImagePath.Buffer = static_cast<PWCH>(ExAllocatePoolWithTag(NonPagedPool, ii.ImagePath.Length, POOL_TAG));
+			ii.ImagePath.Buffer = static_cast<PWCH>(ExAllocatePool2(POOL_FLAG_NON_PAGED, ii.ImagePath.Length, POOL_TAG));
 			if (ii.ImagePath.Buffer != NULL)
 				RtlCopyMemory(ii.ImagePath.Buffer, strPtr, ii.ImagePath.Length);
 			else

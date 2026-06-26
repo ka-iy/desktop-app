@@ -25,18 +25,31 @@ IF %ERRORLEVEL% NEQ 0 (
 if [%1]==[] goto show_usage
 set CERT_SHA1=%1
 
+rem Parse architecture parameter (default: x86_64)
+set ARCH=x86_64
+set MSBUILD_PLATFORM=x64
+if /i "%~2"=="arm64" (
+	set ARCH=arm64
+	set MSBUILD_PLATFORM=ARM64
+)
+if not "%~2"=="" if /i not "%~2"=="arm64" if /i not "%~2"=="x86_64" (
+	echo [!] Unknown architecture: %~2
+	echo [!] Supported: x86_64, arm64
+	goto :error
+)
+
 set SCRIPTDIR=%~dp0
 
 cd %SCRIPTDIR%
 
-set RELEASE_PATH=%SCRIPTDIR%ivpn-split-tunnel\x64\Release\ivpn-split-tunnel
-set DIST_PATH=%SCRIPTDIR%_out_bin\x64\Windows10
+set RELEASE_PATH=%SCRIPTDIR%ivpn-split-tunnel\%MSBUILD_PLATFORM%\Release\ivpn-split-tunnel
+set DIST_PATH=%SCRIPTDIR%_out_bin\%ARCH%\Windows10
 set DIST_PATH_DRV=%DIST_PATH%\drv
 set DIST_PATH_OUT=%DIST_PATH%\out
 
 rem Building driver (signing not necessary on this atage)
 echo [+] Building ...
-msbuild "%SCRIPTDIR%ivpn-split-tunnel\ivpn-split-tunnel.vcxproj" /p:Configuration=Release /p:Platform=x64 /p:SignMode=Off || goto :error
+msbuild "%SCRIPTDIR%ivpn-split-tunnel\ivpn-split-tunnel.vcxproj" /p:Configuration=Release /p:Platform=%MSBUILD_PLATFORM% /p:SignMode=Off || goto :error
 
 echo [+] Preparing files to build CAB ...
 rem Erasing work directory
@@ -52,8 +65,8 @@ rem       But but Microsoft Partner portal will warn that symbols is missing dur
 rem       We can ignore this warning
 copy "%RELEASE_PATH%\ivpn-split-tunnel.inf" "%DIST_PATH_DRV%\ivpn-split-tunnel.inf" || goto :error
 copy "%RELEASE_PATH%\ivpn-split-tunnel.sys" "%DIST_PATH_DRV%\ivpn-split-tunnel.sys" || goto :error
-copy "%RELEASE_PATH%\WdfCoinstaller01009.dll" "%DIST_PATH_DRV%\WdfCoinstaller01009.dll" || goto :error
 copy "%RELEASE_PATH%\..\ivpn-split-tunnel.pdb" "%DIST_PATH_DRV%\ivpn-split-tunnel.pdb" || goto :error
+rem copy "%RELEASE_PATH%\WdfCoinstaller01009.dll" "%DIST_PATH_DRV%\WdfCoinstaller01009.dll" || goto :error
 
 rem echo [+] Signing SYS file by EV Certificate ...
 rem set TIMESTAMP_SERVER=http://timestamp.digicert.com
@@ -75,8 +88,8 @@ echo [+] Preparing CAB file configuration...
   echo .Set DiskDirectoryTemplate="%DIST_PATH_OUT%"
   echo "%DIST_PATH_DRV%\ivpn-split-tunnel.inf"
   echo "%DIST_PATH_DRV%\ivpn-split-tunnel.sys"
-  echo "%DIST_PATH_DRV%\WdfCoinstaller01009.dll"
 	echo "%DIST_PATH_DRV%\ivpn-split-tunnel.pdb"
+rem echo "%DIST_PATH_DRV%\WdfCoinstaller01009.dll"  
 )
 IF %ERRORLEVEL% NEQ 0 goto error
 
@@ -96,13 +109,13 @@ echo [ ] Now you can send the CAB file to Microsoft Partner portal for Attestati
 echo [ ]      https://partner.microsoft.com/en-US/dashboard/home
 echo.
 echo [ ] The signed driver files should be placed at:
-echo [ ]      daemon\References\Windows\SplitTunnelDriver\x86_64
+echo [ ]      daemon\References\Windows\SplitTunnelDriver\%ARCH%
 echo.
 
 exit /b 0
 
 :show_usage
-echo Usage:  %0 ^<EV_Certificate_SHA1_hash^>
+echo Usage:  %0 ^<EV_Certificate_SHA1_hash^> [x86_64^|arm64]
 
 exit /b 1
 

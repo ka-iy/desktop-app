@@ -2,3 +2,7 @@
 ui/build
 ui/out/
 ui/References/macOS/HelperProjects/launchAgent/_out
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/ivpn-split-tunnel/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/others/SplitTunTestConsole/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/_out_bin/

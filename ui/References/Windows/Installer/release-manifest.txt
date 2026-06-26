@@ -32,6 +32,11 @@ cli\ivpn.exe                                       = cli\bin\{ARCH}\cli\ivpn.exe
 [arm64]  IVPN Firewall Native.dll                  = daemon\References\Windows\Native Projects\bin\Release\ARM64\IVPN Firewall Native.dll
 
 ; -------------------------------------------------------------------------
+; Split Tunnel Driver
+; -------------------------------------------------------------------------
+SplitTunnelDriver\ivpn-split-tunnel.sys            = daemon\References\Windows\SplitTunnelDriver\{ARCH}\ivpn-split-tunnel.sys
+
+; -------------------------------------------------------------------------
 ; Common reference files
 ; -------------------------------------------------------------------------
 etc\ca.crt                                         = daemon\References\common\etc\ca.crt
@@ -65,9 +70,6 @@ OpenVPN\obfsproxy\obfs4proxy.exe                   = daemon\References\Windows\O
 [x86_64] OpenVPN\tap\OemVista.inf                  = daemon\References\Windows\OpenVPN\{ARCH}\tap\OemVista.inf
 [x86_64] OpenVPN\tap\tapivpn.cat                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.cat
 [x86_64] OpenVPN\tap\tapivpn.sys                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.sys
-
-[x86_64] SplitTunnelDriver\ivpn-split-tunnel.sys   = daemon\References\Windows\SplitTunnelDriver\{ARCH}\ivpn-split-tunnel.sys
-
 
 ; -------------------------------------------------------------------------
 ; arm64 only 
