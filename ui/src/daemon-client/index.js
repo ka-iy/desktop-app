@@ -20,7 +20,6 @@
 //  along with the UI for IVPN Client Desktop. If not, see <https://www.gnu.org/licenses/>.
 //
 
-const log = require("electron-log");
 const fs = require("fs");
 const net = require("net");
 
@@ -39,6 +38,9 @@ import {
   PortTypeEnum,
 } from "@/store/types";
 import store from "@/store";
+
+const log = require("electron-log");
+log.transports.console.level = "warn"; // suppress debug/info messages from stdout (→ systemd journal)
 
 const PingServersTimeoutMs = 4000;
 
