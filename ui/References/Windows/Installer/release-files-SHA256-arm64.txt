@@ -1,3 +1,5 @@
 ; ARM64 vendor file checksums.
 ; Add entries for pre-built ARM64 vendor binaries checked into the repo.
 ; Format: <relative-path> : <sha256hex> : <optional comment>
+
+OpenVPN\tap\OemVista.inf : 599666B10043C6D0D0189CE59E7EA1539D8AC2D5290C1BED356EB32EC7531A89 : // checksum verification for this file needed, for example, for situations when git did 'checkout' it with wrong carriage return type

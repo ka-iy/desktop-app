@@ -47,8 +47,9 @@
 ;*********************************************************
 
 [Version]
+   PnpLockdown=1
    Signature = "$Windows NT$"
-   CatalogFile = tap0901.cat
+   CatalogFile = tapivpn.cat
    ClassGUID = {4d36e972-e325-11ce-bfc1-08002be10318}
    Provider = %Provider%
    Class = Net
@@ -58,18 +59,18 @@
    DriverVer = 02/27/2024,9.27.0.0
 
 [Strings]
-   DeviceDescription = "TAP-Windows Adapter V9"
-   Provider = "TAP-Windows Provider V9"
+   DeviceDescription = "IVPN-TAP-Windows Adapter V9"
+   Provider = "IVPN-TAP-Windows Provider V9"
 
 ;----------------------------------------------------------------
 ;                      Manufacturer + Product Section (Done)
 ;----------------------------------------------------------------
 [Manufacturer]
-   %Provider% = tap0901, NTARM64
+   %Provider% = tapivpn, NTARM64
 
-[tap0901.NTARM64]
-   %DeviceDescription% = tap0901.ndi, root\tap0901 ; Root enumerated
-   %DeviceDescription% = tap0901.ndi, tap0901      ; Legacy
+[tapivpn.NTARM64]
+   %DeviceDescription% = tapivpn.ndi, root\tapivpn ; Root enumerated
+   %DeviceDescription% = tapivpn.ndi, tapivpn      ; Legacy
 
 ;---------------------------------------------------------------
 ;                             Driver Section (Done)
@@ -84,27 +85,27 @@
 ;    NCF_HAS_UI = 0x80
 ;----------------- Characteristics ------------
 
-[tap0901.ndi]
-   CopyFiles       = tap0901.driver, tap0901.files
-   AddReg          = tap0901.reg
-   AddReg          = tap0901.params.reg
-   DelReg          = tap0901.params.delreg
+[tapivpn.ndi]
+   CopyFiles       = tapivpn.driver, tapivpn.files
+   AddReg          = tapivpn.reg
+   AddReg          = tapivpn.params.reg
+   DelReg          = tapivpn.params.delreg
    Characteristics = 0x1
    *IfType            = 53  ; IF_TYPE_PROP_VIRTUAL
    *MediaType         = 0x0 ; NdisMedium802_3
    *PhysicalMediaType = 0   ; NdisPhysicalMediumUnspecified
 
-[tap0901.ndi.Services]
-   AddService = tap0901,        2, tap0901.service
+[tapivpn.ndi.Services]
+   AddService = tapivpn,        2, tapivpn.service
 
-[tap0901.reg]
-   HKR, Ndi,            Service,      0, "tap0901"
+[tapivpn.reg]
+   HKR, Ndi,            Service,      0, "tapivpn"
    HKR, Ndi\Interfaces, UpperRange,   0, "ndis5"
    HKR, Ndi\Interfaces, LowerRange,   0, "ethernet"
    HKR, ,               Manufacturer, 0, "%Provider%"
    HKR, ,               ProductName,  0, "%DeviceDescription%"
 
-[tap0901.params.reg]
+[tapivpn.params.reg]
    HKR, Ndi\params\MTU,                  ParamDesc, 0, "MTU"
    HKR, Ndi\params\MTU,                  Type,      0, "int"
    HKR, Ndi\params\MTU,                  Default,   0, "1500"
@@ -128,7 +129,7 @@
    HKR, Ndi\params\AllowNonAdmin\enum,   "0",       0, "Not Allowed"
    HKR, Ndi\params\AllowNonAdmin\enum,   "1",       0, "Allowed"
 
-[tap0901.params.delreg]
+[tapivpn.params.delreg]
    HKR, Ndi\params\MAC
 
 ;----------------------------------------------------------------
@@ -148,13 +149,13 @@
 ;    SERVICE_DISABLED     = 0x4
 ;---------- Start Mode ---------------
 
-[tap0901.service]
+[tapivpn.service]
    DisplayName = %DeviceDescription%
    ServiceType = 1
    StartType = 3
    ErrorControl = 1
    LoadOrderGroup = NDIS
-   ServiceBinary = %12%\tap0901.sys
+   ServiceBinary = %12%\tapivpn.sys
 
 ;-----------------------------------------------------------------
 ;                                File Installation
@@ -170,25 +171,25 @@
 ; 1 = "Intel Driver Disk 1",e100bex.sys,,
 
 [SourceDisksNames]
-   1 = %DeviceDescription%, tap0901.sys
+   1 = %DeviceDescription%, tapivpn.sys
 
 ; SourceDisksFiles
 ; filename_on_source = diskID[, [subdir][, size]]
 ; e100bex.sys = 1,, ; on distribution disk 1
 
 [SourceDisksFiles]
-tap0901.sys = 1
+tapivpn.sys = 1
 
 [DestinationDirs]
-   tap0901.files  = 11
-   tap0901.driver = 12
+   tapivpn.files  = 11
+   tapivpn.driver = 12
 
-[tap0901.files]
+[tapivpn.files]
 ;   TapPanel.cpl,,,6   ; COPYFLG_NOSKIP | COPYFLG_NOVERSIONCHECK
 ;   cipsrvr.exe,,,6     ; COPYFLG_NOSKIP | COPYFLG_NOVERSIONCHECK
 
-[tap0901.driver]
-   tap0901.sys,,,6     ; COPYFLG_NOSKIP | COPYFLG_NOVERSIONCHECK
+[tapivpn.driver]
+   tapivpn.sys,,,6     ; COPYFLG_NOSKIP | COPYFLG_NOVERSIONCHECK
 
 ;---------------------------------------------------------------
 ;                                      End
