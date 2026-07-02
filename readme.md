@@ -88,6 +88,13 @@ pip3 install pytest pytest-xdist pyyaml
 To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional packages are required:  
 `sudo apt install astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind`
 
+**Additional requirements for ARM64 cross-compilation** (on x86_64 host):  
+```bash
+sudo apt-get install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+sudo dpkg --add-architecture arm64 && sudo apt-get update
+sudo apt-get install libssl-dev:arm64 liblz4-dev:arm64 liblzo2-dev:arm64 libpam0g-dev:arm64
+```
+
 <a name="compilation"></a>
 
 ### Compilation
@@ -140,19 +147,27 @@ cd desktop-app
 Base package *(daemon + CLI)*:
 
 ```bash
+# native build (host architecture)
 ./cli/References/Linux/build.sh
+
+# ARM64 cross-compile (on x86_64 host)
+ARCH_TARGET=arm64 ./cli/References/Linux/build.sh
 ```
 
-Compiled DEB/RPM packages can be found at `cli/References/Linux/_out_bin`  
+Compiled DEB/RPM packages can be found at `cli/References/Linux/_out_bin/<arch>/`  
 *Note: You can refer to [manual installation guide for Linux](docs/readme-build-manual.md).*
 
 Graphical User Interface *(UI)*:
 
 ```bash
+# native build
 ./ui/References/Linux/build.sh
+
+# ARM64 cross-compile
+ARCH_TARGET=arm64 ./ui/References/Linux/build.sh
 ```
 
-Compiled DEB/RPM packages can be found at `ui/References/Linux/_out_bin`  
+Compiled DEB/RPM packages can be found at `ui/References/Linux/_out_bin/<arch>/`  
 *Note: It is required to have installed IVPN Daemon before running IVPN UI.*  
 
 <a name="versioning"></a>

@@ -21,6 +21,8 @@
     "electron:build:win:arm64": "npm run build && electron-builder --win --arm64 --config electron-builder.config.js",
     "electron:build:mac": "npm run build && electron-builder --mac --config",
     "electron:build:linux": "npm run build && electron-builder --linux --config",
+    "electron:build:linux:x64": "npm run build && electron-builder --linux --x64 --config electron-builder.config.js",
+    "electron:build:linux:arm64": "npm run build && electron-builder --linux --arm64 --config electron-builder.config.js",
     "postinstall": "node node_modules/electron/install.js && electron-builder install-app-deps",
     "format": "prettier --write .",
     "lint": "eslint --ext .js,.vue --ignore-path .gitignore --fix src"

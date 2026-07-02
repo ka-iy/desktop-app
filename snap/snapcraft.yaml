@@ -193,8 +193,9 @@ parts:
     source-subdir: daemon
     override-build: |
       daemon/References/Linux/scripts/build-daemon.sh -v $SNAPCRAFT_PROJECT_VERSION
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp daemon/References/Linux/scripts/_out_bin/ivpn-service $SNAPCRAFT_PART_INSTALL/bin
+      cp daemon/References/Linux/scripts/_out_bin/${_ARCH}/ivpn-service $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/usr/bin
       rctlpath=$( which resolvectl )
       cp $rctlpath $SNAPCRAFT_PART_INSTALL/usr/bin
@@ -209,10 +210,11 @@ parts:
     source-subdir: cli
     override-build: |
       cli/References/Linux/compile-cli.sh -v $SNAPCRAFT_PROJECT_VERSION
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/bin
-      cp cli/References/Linux/_out_bin/ivpn $SNAPCRAFT_PART_INSTALL/bin
+      cp cli/References/Linux/_out_bin/${_ARCH}/ivpn $SNAPCRAFT_PART_INSTALL/bin
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/bash-completion
-      cp cli/References/Linux/_out_bin/ivpn.bash-completion $SNAPCRAFT_PART_INSTALL/opt/ivpn/bash-completion
+      cp cli/References/Linux/_out_bin/${_ARCH}/ivpn.bash-completion $SNAPCRAFT_PART_INSTALL/opt/ivpn/bash-completion
 
   wireguard-tools:
     plugin: nil
@@ -224,9 +226,10 @@ parts:
     override-build: |
       rm -fr ./_deps/wireguard-tools*
       ./scripts/build-wireguard-tools.sh
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/wireguard-tools
-      cp _deps/wireguard-tools_inst/wg-quick $SNAPCRAFT_PART_INSTALL/opt/ivpn/wireguard-tools/wg-quick
-      cp _deps/wireguard-tools_inst/wg $SNAPCRAFT_PART_INSTALL/opt/ivpn/wireguard-tools/wg
+      cp _deps/${_ARCH}/wireguard-tools_inst/wg-quick $SNAPCRAFT_PART_INSTALL/opt/ivpn/wireguard-tools/wg-quick
+      cp _deps/${_ARCH}/wireguard-tools_inst/wg $SNAPCRAFT_PART_INSTALL/opt/ivpn/wireguard-tools/wg
 
   dnscrypt-proxy:
     plugin: nil
@@ -238,8 +241,9 @@ parts:
     override-build: |
       rm -fr ./_deps/dnscryptproxy*
       ./scripts/build-dnscrypt-proxy.sh
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/dnscrypt-proxy
-      cp _deps/dnscryptproxy_inst/dnscrypt-proxy $SNAPCRAFT_PART_INSTALL/opt/ivpn/dnscrypt-proxy/dnscrypt-proxy
+      cp _deps/${_ARCH}/dnscryptproxy_inst/dnscrypt-proxy $SNAPCRAFT_PART_INSTALL/opt/ivpn/dnscrypt-proxy/dnscrypt-proxy
 
   obfs4proxy:
     plugin: nil
@@ -251,8 +255,9 @@ parts:
     override-build: |
       rm -fr ./_deps/obfs4proxy*
       ./scripts/build-obfs4proxy.sh
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/obfsproxy
-      cp _deps/obfs4proxy_inst/obfs4proxy $SNAPCRAFT_PART_INSTALL/opt/ivpn/obfsproxy/obfs4proxy
+      cp _deps/${_ARCH}/obfs4proxy_inst/obfs4proxy $SNAPCRAFT_PART_INSTALL/opt/ivpn/obfsproxy/obfs4proxy
 
   v2ray:
     plugin: nil
@@ -264,8 +269,9 @@ parts:
     override-build: |
       rm -fr ./_deps/v2ray*
       ./scripts/build-v2ray.sh
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/v2ray
-      cp _deps/v2ray_inst/v2ray $SNAPCRAFT_PART_INSTALL/opt/ivpn/v2ray/v2ray      
+      cp _deps/${_ARCH}/v2ray_inst/v2ray $SNAPCRAFT_PART_INSTALL/opt/ivpn/v2ray/v2ray      
 
   kemhelper:
     plugin: nil
@@ -290,8 +296,9 @@ parts:
     override-build: |
       rm -fr ./Linux/_deps/kem-helper
       ./Linux/scripts/build-kem-helper.sh
+      _ARCH=$(uname -m); [ "$_ARCH" = "x86_64" ] && _ARCH="amd64"; [ "$_ARCH" = "aarch64" ] && _ARCH="arm64"
       mkdir -p $SNAPCRAFT_PART_INSTALL/opt/ivpn/kem
-      cp Linux/_deps/kem-helper/kem-helper-bin/kem-helper $SNAPCRAFT_PART_INSTALL/opt/ivpn/kem/kem-helper
+      cp Linux/_deps/${_ARCH}/kem-helper/kem-helper-bin/kem-helper $SNAPCRAFT_PART_INSTALL/opt/ivpn/kem/kem-helper
 
   etc:
     plugin: nil
