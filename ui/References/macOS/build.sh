@@ -41,10 +41,12 @@ while getopts ":v:c:i:" opt; do
 done
 
 if [ -z "${_VERSION}" ]; then
-  echo "Usage:"
-  echo "    $0 -v <version> -c <APPLE_DEVID_CERTIFICATE>"
-  echo "    Example: $0 -v 0.0.1 -c WXXXXXXXXN"
-  exit 1
+  _VERSION="$(awk -F'"' '/"version"/{print $4; exit}' "${_SCRIPT_DIR}/../../package.json" 2>/dev/null)"
+  if [ -z "${_VERSION}" ]; then
+    echo "[!] ERROR: Could not detect version from package.json. Use -v <version>."
+    exit 1
+  fi
+  echo "[i] Version auto-detected: ${_VERSION}"
 fi
 
 echo "[+] *** COMPILING IVPN BINARIES AND MAKING DMG ***";
@@ -73,22 +75,18 @@ _PATH_ABS_REPO_CLI=""
 _PATH_ABS_REPO_UI=""
 
 # ============================== ARCHITECTURE =============================
-_ARCH="$( uname -m )"
-echo "    ARCHITECTURE:            '${_ARCH}'"
-if [ ${_ARCH} != "x86_64" ] && [ ${_ARCH} != "arm64" ]; then
-  echo "ERROR: Unsupported architecture"
-  exit 1
-fi
-if [ ${_ARCH} = "arm64" ]; then
-  export GOOS=darwin
-  export GOARCH=arm64
-  export CGO_ENABLED=1
-  echo "    Version:                 '${_VERSION}'"
-  echo "    Defining Golang variables:"
-  echo "      GOOS:                  '${GOOS}'"
-  echo "      GOARCH:                '${GOARCH}'"
-  echo "      CGO_ENABLED:           '${CGO_ENABLED}'"
-fi
+_HOST_ARCH="$(uname -m)"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+  arm64)  _COMPILEDFOLDER="mac-arm64" ;;
+  x86_64) _COMPILEDFOLDER="mac" ;;
+  *)
+    echo "ERROR: Unsupported ARCH_TARGET='$ARCH_TARGET'. Use 'arm64' or 'x86_64'."
+    exit 1
+    ;;
+esac
+export ARCH_TARGET
+echo "    ARCH_TARGET:             '${ARCH_TARGET}'"
 
 # ============================== PROJECTS PATH =============================
 # obtaining absolute paths to sources of daemon and CLI
@@ -124,27 +122,21 @@ echo "    UI sources:     ${_PATH_ABS_REPO_UI}"
 echo "    Daemon sources: ${_PATH_ABS_REPO_DAEMON}"
 echo "    CLI sources:    ${_PATH_ABS_REPO_CLI}"
 
-echo "[+] Checking UI project version..."
-cat "${_PATH_ABS_REPO_UI}/package.json" | grep \"version\" | grep \"${_VERSION}\"
-CheckLastResult "ERROR: Please set correct version in file '${_PATH_ABS_REPO_UI}/package.json'"
-
-read -p "Press enter to continue"
-
 # ============================== BUILDING PROJECTS =============================
 echo "[+] Building IVPN Daemon (${_PATH_ABS_REPO_DAEMON})...";
-${_PATH_ABS_REPO_DAEMON}/References/macOS/scripts/build-all.sh -norebuild -wifi ${_BUILDTAGS_USE_LIBVPN} -v ${_VERSION}
+ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_DAEMON}/References/macOS/scripts/build-all.sh -norebuild -wifi ${_BUILDTAGS_USE_LIBVPN} -v ${_VERSION}
 CheckLastResult "[!] ERROR building IVPN Daemon"
 
 echo "[+] Building helper ..."
 if [ -z "${_SIGN_CERT}" ]; then
-  ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/helper/build.sh -v ${_VERSION}
+  ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/helper/build.sh -v ${_VERSION}
 else
-  ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/helper/build.sh -v ${_VERSION} -c ${_SIGN_CERT}
+  ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/helper/build.sh -v ${_VERSION} -c ${_SIGN_CERT}
 fi
 CheckLastResult "[!] ERROR building helper binary"
 
 echo "[+] Building LaunchAgent (net.ivpn.LaunchAgent) ..."
-${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/launchAgent/build.sh
+ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/launchAgent/build.sh
 CheckLastResult "[!] ERROR building net.ivpn.LaunchAgent binary"
 
 if [ ! -z ${_BUILDTAGS_USE_LIBVPN} ]; then
@@ -157,12 +149,12 @@ fi
 cd ${_SCRIPT_DIR}
 
 echo "[+] Building Uninstaller/Installer ..."
-${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/uninstaller/build.sh -c ${_SIGN_CERT}
+ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/uninstaller/build.sh -c ${_SIGN_CERT}
 CheckLastResult "[!] ERROR building Uninstaller/Installer"
 cd ${_SCRIPT_DIR}
 
 echo "[+] Building IVPN CLI (${_PATH_ABS_REPO_CLI})...";
-${_PATH_ABS_REPO_CLI}/References/macOS/build.sh -v ${_VERSION}
+ARCH_TARGET="${ARCH_TARGET}" ${_PATH_ABS_REPO_CLI}/References/macOS/build.sh -v ${_VERSION}
 CheckLastResult "[!] ERROR building IVPN CLI"
 
 echo ======================================================
@@ -175,7 +167,11 @@ echo "[+] Building UI: Installing NPM molules ..."
 npm install
 CheckLastResult
 echo "[+] Building UI: Build..."
-npm run electron:build
+if [ "${ARCH_TARGET}" = "arm64" ]; then
+    npm run electron:build:mac:arm64
+else
+    npm run electron:build:mac:x64
+fi
 CheckLastResult
 
 # ============================== STOP IF GITHUB_ACTIONS ==============================
@@ -191,104 +187,92 @@ fi
 echo ======================================================
 echo ================= Preparing DMG ======================
 echo ======================================================
-_COMPILEDFOLDER="mac"
-_ARCH="$( uname -m )"
-if [ ${_ARCH} = "arm64" ]; then
-  _COMPILEDFOLDER="mac-arm64"
-  echo "[ ] Using folder with compiled files ${_COMPILEDFOLDER}. Atchitecture: ${_ARCH}"
-else
-  echo "[ ] Using folder with compiled files ${_COMPILEDFOLDER}. Default atchitecture (${_ARCH})"
-fi
+echo "[ ] Architecture: ${ARCH_TARGET} | Electron folder: ${_COMPILEDFOLDER}"
 
-echo "[+] Preparing DMG ..."
-_FNAME_UI_COMPILED="IVPN.app"
-_PATH_IMAGE_FOLDER="${_SCRIPT_DIR}/_image"
-_PATH_UI_COMPILED_IMAGE=${_PATH_IMAGE_FOLDER}/${_FNAME_UI_COMPILED}
+# Copy a binary to destination and verify it matches ARCH_TARGET.
+# Fails immediately if the file is missing or has the wrong arch.
+CopyBinary() {
+    local src="$1"
+    local dst="$2"
+    if [ ! -f "${src}" ]; then
+        echo "[!] ERROR: missing binary: ${src}"; exit 1
+    fi
+    local arch
+    arch=$(lipo -info "${src}" 2>/dev/null | grep -oE 'arm64|x86_64' | tail -1)
+    if [ "${arch}" != "${ARCH_TARGET}" ]; then
+        echo "[!] ERROR: wrong arch (expected ${ARCH_TARGET}, got '${arch}'): $(basename "${src}")"; exit 1
+    fi
+    cp "${src}" "${dst}" || exit 1
+    echo "    [+] ${arch}: $(basename "${src}")"
+}
 
-_FNAME_UI_ORIG="IVPN.app"
-_PATH_COMPILED_UI_ORIG="${_PATH_ABS_REPO_UI}/dist/${_COMPILEDFOLDER}/${_FNAME_UI_ORIG}"
+echo "[+] Preparing image folder..."
+_PATH_IMAGE_FOLDER="${_SCRIPT_DIR}/_image/${ARCH_TARGET}"
+_PATH_UI_COMPILED_IMAGE="${_PATH_IMAGE_FOLDER}/IVPN.app"
+_PATH_COMPILED_UI_ORIG="${_PATH_ABS_REPO_UI}/dist/${_COMPILEDFOLDER}/IVPN.app"
 
-# Erasing old files
-rm -fr ${_PATH_IMAGE_FOLDER}
+rm -fr "${_PATH_IMAGE_FOLDER}"
 sleep 2
-mkdir ${_PATH_IMAGE_FOLDER}  || CheckLastResult
+mkdir -p "${_PATH_IMAGE_FOLDER}" || CheckLastResult
 
-if [ ! -d ${_PATH_COMPILED_UI_ORIG} ]; then
-  echo "[!] ERROR: unable to find compiled UI binary: ${_PATH_COMPILED_UI_ORIG}"
+if [ ! -d "${_PATH_COMPILED_UI_ORIG}" ]; then
+  echo "[!] ERROR: compiled UI not found: ${_PATH_COMPILED_UI_ORIG}"; exit 1
 fi
 
-echo "[+] Preparing DMG image: Copying background image for DMG ..."
-mkdir -p "${_PATH_IMAGE_FOLDER}/.background" && cp "${_PATH_ABS_REPO_UI}/References/macOS/resources/dmg_background.png" "${_PATH_IMAGE_FOLDER}/.background/back.png"
-CheckLastResult
+# Path shorthand aliases (set after image folder is known)
+_D="${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS"
+_R="${_PATH_UI_COMPILED_IMAGE}/Contents/Resources"
+_DEPS="${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/${ARCH_TARGET}"
+_HELPERS="${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects"
 
-echo "[+] Preparing DMG image: Copying UI binaries ..."
-cp -a "${_PATH_COMPILED_UI_ORIG}" ${_PATH_UI_COMPILED_IMAGE} || CheckLastResult
-rm ${_PATH_ABS_REPO_UI}/dist/IVPN* # removing all created DMG (we do not need them)
+echo "[+] Copying background and Electron app..."
+mkdir -p "${_PATH_IMAGE_FOLDER}/.background"
+cp "${_PATH_ABS_REPO_UI}/References/macOS/resources/dmg_background.png" \
+   "${_PATH_IMAGE_FOLDER}/.background/back.png" || CheckLastResult
+cp -a "${_PATH_COMPILED_UI_ORIG}" "${_PATH_UI_COMPILED_IMAGE}" || CheckLastResult
+rm -f ${_PATH_ABS_REPO_UI}/dist/IVPN* # remove electron-builder's auto-generated DMGs
 
-echo "[+] Preparing DMG image: Copying 'etc' ..."
-cp -R "${_PATH_ABS_REPO_DAEMON}/References/macOS/etc" "${_PATH_UI_COMPILED_IMAGE}/Contents/Resources" || CheckLastResult
-echo "[+] Preparing DMG image: Copying 'common/etc' ..."
-cp -R "${_PATH_ABS_REPO_DAEMON}/References/common/etc" "${_PATH_UI_COMPILED_IMAGE}/Contents/Resources" || CheckLastResult
+echo "[+] Copying 'etc' config files..."
+cp -R "${_PATH_ABS_REPO_DAEMON}/References/macOS/etc"  "${_R}" || CheckLastResult
+cp -R "${_PATH_ABS_REPO_DAEMON}/References/common/etc" "${_R}" || CheckLastResult
+echo "    (sudo may be required for permissions)"
+sudo chmod 0400 "${_R}"/etc/*.* || CheckLastResult
+sudo chmod 0700 "${_R}"/etc/*.sh || CheckLastResult
 
-echo "[+] Preparing DMG image: Setting correct file permissions for 'etc' folder ..."
-echo "    (sudo pass can be asked now)"
-sudo chmod 0400 ${_PATH_UI_COMPILED_IMAGE}/Contents/Resources/etc/*.* || CheckLastResult
-sudo chmod 0700 ${_PATH_UI_COMPILED_IMAGE}/Contents/Resources/etc/*.sh || CheckLastResult
+echo "[+] Copying binaries (arch: ${ARCH_TARGET})..."
+mkdir -p "${_D}/cli" "${_D}/WireGuard" "${_D}/v2ray" "${_D}/dnscrypt-proxy" \
+         "${_D}/kem" "${_R}/obfsproxy"
 
-echo "[+] Preparing DMG image: Copying 'openvpn'..."
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/openvpn_inst/bin/openvpn" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/openvpn" || CheckLastResult
+CopyBinary "${_PATH_ABS_REPO_DAEMON}/bin/${ARCH_TARGET}/IVPN Agent"               "${_D}/IVPN Agent"
+CopyBinary "${_PATH_ABS_REPO_CLI}/References/macOS/_out_bin/${ARCH_TARGET}/ivpn"  "${_D}/cli/ivpn"
+CopyBinary "${_DEPS}/openvpn_inst/bin/openvpn"                                    "${_D}/openvpn"
+CopyBinary "${_DEPS}/obfs4proxy_inst/obfs4proxy"                                  "${_R}/obfsproxy/obfs4proxy"
+CopyBinary "${_DEPS}/v2ray_inst/v2ray"                                            "${_D}/v2ray/v2ray"
+CopyBinary "${_DEPS}/wg_inst/wg"                                                  "${_D}/WireGuard/wg"
+CopyBinary "${_DEPS}/wg_inst/wireguard-go"                                        "${_D}/WireGuard/wireguard-go"
+CopyBinary "${_DEPS}/dnscryptproxy_inst/dnscrypt-proxy"                           "${_D}/dnscrypt-proxy/dnscrypt-proxy"
+CopyBinary "${_DEPS}/kem-helper/kem-helper-bin/kem-helper"                        "${_D}/kem/kem-helper"
+CopyBinary "${_HELPERS}/launchAgent/_out/${ARCH_TARGET}/net.ivpn.LaunchAgent"     "${_D}/net.ivpn.LaunchAgent"
 
-echo "[+] Preparing DMG image: Copying 'obfsproxy' binaries..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/Resources/obfsproxy"
-cp -R "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/obfs4proxy_inst/obfs4proxy" "${_PATH_UI_COMPILED_IMAGE}/Contents/Resources/obfsproxy/obfs4proxy" || CheckLastResult
+echo "[+] Copying installer/uninstaller app bundles..."
+# net.ivpn.client.Helper is already embedded inside IVPN Installer.app by uninstaller/build.sh
+cp -R "${_HELPERS}/uninstaller/bin/${ARCH_TARGET}/IVPN Installer.app"   "${_D}"                   || CheckLastResult
+cp -R "${_HELPERS}/uninstaller/bin/${ARCH_TARGET}/IVPN Uninstaller.app" "${_PATH_IMAGE_FOLDER}"   || CheckLastResult
 
-echo "[+] Preparing DMG image: Copying 'V2Ray' binaries..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/v2ray"
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/v2ray_inst/v2ray" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/v2ray/v2ray" || CheckLastResult
+echo "[+] Copying LaunchAgent plist..."
+mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/Library/LaunchAgents"
+cp -R "${_HELPERS}/launchAgent/net.ivpn.LaunchAgent_launchd.plist" \
+      "${_PATH_UI_COMPILED_IMAGE}/Contents/Library/LaunchAgents/" || CheckLastResult
 
-echo "[+] Preparing DMG image: Copying 'WireGuard' binaries..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/WireGuard"
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/wg_inst/wg" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/WireGuard/wg" || CheckLastResult
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/wg_inst/wireguard-go" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/WireGuard/wireguard-go" || CheckLastResult
-
-echo "[+] Preparing DMG image: Copying 'dnscrypt-proxy' binary..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/dnscrypt-proxy"
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/dnscryptproxy_inst/dnscrypt-proxy" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/dnscrypt-proxy/dnscrypt-proxy" || CheckLastResult
-
-echo "[+] Preparing DMG image: Copying kem-helper..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/kem"
-cp "${_PATH_ABS_REPO_DAEMON}/References/macOS/_deps/kem-helper/kem-helper-bin/kem-helper" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/kem/kem-helper" || CheckLastResult
-
-echo "[+] Preparing DMG image: Copying daemon..."
-cp -R "${_PATH_ABS_REPO_DAEMON}/IVPN Agent" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS" || CheckLastResult
-
-echo "[+] Preparing DMG image: Copying CLI..."
-mkdir "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/cli" || CheckLastResult
-cp -R "${_PATH_ABS_REPO_CLI}/References/macOS/_out_bin/ivpn" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/cli" || CheckLastResult
-
-echo "[+] Preparing DMG image: Copying IVPN Installer.app ..."
-cp -R "${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/uninstaller/bin/IVPN Installer.app" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS"
-CheckLastResult
-echo "[+] Preparing DMG image: Copying IVPN Uninstaller.app ..."
-cp -R "${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/uninstaller/bin/IVPN Uninstaller.app" "${_PATH_IMAGE_FOLDER}"
-CheckLastResult
-
-if [ ! -z ${_BUILDTAGS_USE_LIBVPN} ]; then
-  echo "[+] Preparing DMG image: Copying libivpn.dylib ..."
-  cp "${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/libivpn/libivpn.dylib" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS"
-  CheckLastResult
+if [ ! -z "${_BUILDTAGS_USE_LIBVPN}" ]; then
+  echo "[+] Copying libivpn.dylib..."
+  cp "${_HELPERS}/libivpn/libivpn.dylib" "${_D}" || CheckLastResult
 fi
 
-if [ ! -z ${_FILE_TO_INTEGRATE_IN_BUNDLE} ]; then
-  echo "[+] INTEGRATING EXTERNAL FILE INTO RESOURCES: ${_FILE_TO_INTEGRATE_IN_BUNDLE}..."
-  cp "${_FILE_TO_INTEGRATE_IN_BUNDLE}" "${_PATH_UI_COMPILED_IMAGE}/Contents/Resources"
+if [ ! -z "${_FILE_TO_INTEGRATE_IN_BUNDLE}" ]; then
+  echo "[+] Integrating external file: ${_FILE_TO_INTEGRATE_IN_BUNDLE}..."
+  cp "${_FILE_TO_INTEGRATE_IN_BUNDLE}" "${_R}" || CheckLastResult
 fi
-
-echo "[+] Preparing DMG image: Copying net.ivpn.LaunchAgent ..."
-mkdir -p "${_PATH_UI_COMPILED_IMAGE}/Contents/Library/LaunchAgents" && cp -R "${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/launchAgent/net.ivpn.LaunchAgent_launchd.plist" "${_PATH_UI_COMPILED_IMAGE}/Contents/Library/LaunchAgents/"
-CheckLastResult
-cp -R "${_PATH_ABS_REPO_UI}/References/macOS/HelperProjects/launchAgent/_out/net.ivpn.LaunchAgent" "${_PATH_UI_COMPILED_IMAGE}/Contents/MacOS/"
-CheckLastResult
 
 # ============================== SIGNING ==============================
 if [ -z "${_SIGN_CERT}" ]; then
@@ -304,11 +288,11 @@ echo "[+] GENERATING DMG ..."
 _PATH_COMPILED_FOLDER=${_SCRIPT_DIR}/_compiled
 
 _PATH_DMG_FILE="${_PATH_COMPILED_FOLDER}/IVPN-"${_VERSION}".dmg"
-if [ ${_ARCH} != "x86_64" ]; then
-  _PATH_DMG_FILE="${_PATH_COMPILED_FOLDER}/IVPN-"${_VERSION}-${_ARCH}".dmg"
+if [ "${ARCH_TARGET}" != "x86_64" ]; then
+  _PATH_DMG_FILE="${_PATH_COMPILED_FOLDER}/IVPN-"${_VERSION}-${ARCH_TARGET}".dmg"
 fi
 
-_PATH_TMP_DMG_FILE="${_PATH_COMPILED_FOLDER}/ivpn.temp.dmg"
+_PATH_TMP_DMG_FILE="${_PATH_COMPILED_FOLDER}/ivpn-${ARCH_TARGET}.temp.dmg"
 
 _BACKGROUND_FILE="back.png"
 _APPLICATION_NAME="IVPN.app"

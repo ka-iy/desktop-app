@@ -20,8 +20,36 @@ BASE_DIR="$(pwd)" #set base folder of script location
 # Determine number of CPU cores for parallel compilation
 CPU_CORES=$(sysctl -n hw.logicalcpu)
 
-BUILD_DIR=${BASE_DIR}/../_deps/openvpn_build # work directory
-INSTALL_DIR=${BASE_DIR}/../_deps/openvpn_inst
+# ====== Architecture setup ======
+_HOST_ARCH="$(uname -m)"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+  arm64)
+    _ARCH_FLAG="-arch arm64"
+    _GOARCH="arm64"
+    _OPENSSL_TARGET="darwin64-arm64-cc"
+    _AUTOCONF_HOST="aarch64-apple-darwin"
+    ;;
+  x86_64)
+    _ARCH_FLAG="-arch x86_64"
+    _GOARCH="amd64"
+    _OPENSSL_TARGET="darwin64-x86_64-cc"
+    _AUTOCONF_HOST="x86_64-apple-darwin"
+    ;;
+  *)
+    echo "ERROR: Unsupported ARCH_TARGET='$ARCH_TARGET'. Use 'arm64' or 'x86_64'."
+    exit 1
+    ;;
+esac
+_DEPLOY_MIN="12.0"
+_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+_CC="$(xcrun -f clang) ${_ARCH_FLAG} -isysroot ${_SDK}"
+_CXX="$(xcrun -f clang++) ${_ARCH_FLAG} -isysroot ${_SDK}"
+echo "    ARCH_TARGET: ${ARCH_TARGET}"
+# ====== End architecture setup ======
+
+BUILD_DIR=${BASE_DIR}/../_deps/${ARCH_TARGET}/openvpn_build # work directory
+INSTALL_DIR=${BASE_DIR}/../_deps/${ARCH_TARGET}/openvpn_inst
 
 echo "******** Creating work-folder (${BUILD_DIR})..."
 rm -rf ${BUILD_DIR}
@@ -31,13 +59,6 @@ mkdir -pv ${BUILD_DIR}
 mkdir -pv ${INSTALL_DIR}
 mkdir -pv ${INSTALL_DIR}/include
 mkdir -pv ${INSTALL_DIR}/lib
-
-_ARCH="$( uname -m )"
-echo "    ARCHITECTURE:            '${_ARCH}'"
-if [ ${_ARCH} != "x86_64" ] && [ ${_ARCH} != "arm64" ]; then
-  echo "ERROR: Unsupported architecture"
-  exit 1
-fi
 
 echo "************************************************"
 echo "******** Downloading OpenSSL sources..."
@@ -56,11 +77,11 @@ echo "******** Configuring OpenSSL..."
 echo "************************************************"
 cd ${BUILD_DIR}/openssl-${OPEN_SSL_VER}
 
-if [ ${_ARCH} = "arm64" ]; then
-  ./Configure darwin64-arm64-cc shared enable-ec_nistp_64_gcc_128 no-ssl2 no-ssl3 no-comp --openssldir=/usr/local/ssl/macos-arm64 -mmacosx-version-min=10.14
-else
-  ./Configure darwin64-x86_64-cc shared enable-ec_nistp_64_gcc_128 no-ssl2 no-ssl3 no-comp --openssldir=/usr/local/ssl/macos-x86_64 -mmacosx-version-min=10.14
-fi
+CC="${_CC}" \
+./Configure ${_OPENSSL_TARGET} shared \
+    enable-ec_nistp_64_gcc_128 no-ssl2 no-ssl3 no-comp \
+    --openssldir=/usr/local/ssl/macos-${ARCH_TARGET} \
+    -mmacosx-version-min=${_DEPLOY_MIN}
 
 echo "************************************************"
 echo "******** Compiling OpenSSL..."
@@ -87,7 +108,9 @@ cd lzo-${LZO_VER}
 echo "************************************************"
 echo "******** Compiling LZO..."
 echo "************************************************"
-CFLAGS="-mmacosx-version-min=10.14" ./configure --prefix="${INSTALL_DIR}" && make -j$CPU_CORES && make install
+CC="${_CC}" CFLAGS="-mmacosx-version-min=${_DEPLOY_MIN}" \
+./configure --prefix="${INSTALL_DIR}" --host="${_AUTOCONF_HOST}" \
+&& make -j$CPU_CORES && make install
 
 echo "************************************************"
 echo "******** Cloning OpenVPN sources (version ${OPEN_VPN_VER})..."
@@ -104,11 +127,13 @@ autoreconf -ivf
 echo "************************************************"
 echo "******** Configuring OpenVPN..."
 echo "************************************************"
+CC="${_CC}" \
 OPENSSL_LIBS="-L${INSTALL_DIR}/lib -lssl -lcrypto" \
 OPENSSL_CFLAGS="-I${INSTALL_DIR}/include" \
-CFLAGS="-mmacosx-version-min=10.14 -I${INSTALL_DIR}/include" \
+CFLAGS="-mmacosx-version-min=${_DEPLOY_MIN} -I${INSTALL_DIR}/include" \
     LDFLAGS="-L${INSTALL_DIR}/lib" \
-    ./configure --disable-debug --disable-server --enable-password-save \
+    ./configure --host="${_AUTOCONF_HOST}" \
+    --disable-debug --disable-server --enable-password-save \
     --disable-lz4
     # disabling lz4 compression algorithm (there is compilation error on macOS M1 when LZ4 enabled)
 

@@ -128,10 +128,18 @@ Instructions to build DMG package of IVPN Client *(daemon + CLI + UI)*:
 ```bash
 git clone https://github.com/ivpn/desktop-app.git
 cd desktop-app/ui/References/macOS
-./build.sh -v <VERSION_X.X.X> -c <APPLE_DevID_CERTIFICATE>
+
+# Build for Apple Silicon (arm64):
+ARCH_TARGET=arm64 ./build.sh -c <APPLE_DevID_CERTIFICATE>
+
+# Build for Intel (x86_64):
+ARCH_TARGET=x86_64 ./build.sh -c <APPLE_DevID_CERTIFICATE>
 ```
 
-Compiled binary can be found at: `ui/References/macOS/_compiled`  
+Compiled DMG files can be found at: `ui/References/macOS/_compiled/`  
+- `IVPN-X.X.X-arm64.dmg` — Apple Silicon (M1/M2/M3)  
+- `IVPN-X.X.X.dmg` — Intel (x86_64)  
+
 *([some info](https://github.com/ivpn/desktop-app/issues/161) about Apple Developer ID)*  
 
 <a name="compilation_linux"></a>

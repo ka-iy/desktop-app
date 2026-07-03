@@ -50,7 +50,7 @@ _LIBOQS_FOLDER=$_WORK_FOLDER/liboqs
 _LIBOQS_SOURCES_FOLDER=$_LIBOQS_FOLDER/liboqs
 _LIBOQS_INSTALL_FOLDER=$_LIBOQS_FOLDER/INSTALL
 
-# --- Cross-compilation flags ---
+# --- Cross-compilation flags (Linux) ---
 CROSS_ARCH="${CROSS_ARCH:-}"
 CMAKE_CROSS_FLAGS=""
 GCC_CMD="gcc"
@@ -61,6 +61,21 @@ elif [ "$CROSS_ARCH" = "amd64" ]; then
     CMAKE_CROSS_FLAGS="-DCMAKE_C_COMPILER=x86_64-linux-gnu-gcc -DCMAKE_SYSTEM_NAME=Linux -DCMAKE_SYSTEM_PROCESSOR=x86_64"
     GCC_CMD="x86_64-linux-gnu-gcc"
 fi
+
+# --- macOS: honor CC, CFLAGS, MACOS_CMAKE_FLAGS env vars for cross-compilation ---
+_MACOS_CC=""
+_MACOS_CFLAGS=""
+_MACOS_CMAKE_COMPILER_FLAG=""
+_MACOS_CMAKE_PLATFORM_FLAGS=""
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    _MACOS_CC="${CC:-$(xcrun -f clang)}"
+    _MACOS_CFLAGS="${CFLAGS:-}"
+    # For CMake, pass only the bare compiler path; arch/sysroot are handled via MACOS_CMAKE_FLAGS
+    # (_MACOS_CC may contain -arch/-isysroot flags which CMake does not accept in -DCMAKE_C_COMPILER)
+    _MACOS_CMAKE_COMPILER_FLAG="-DCMAKE_C_COMPILER=$(xcrun -f clang)"
+    _MACOS_CMAKE_PLATFORM_FLAGS="${MACOS_CMAKE_FLAGS:-}"
+fi
+
 if [ ! -d $_LIBOQS_FOLDER ]; then 
     echo "[*] Creating '$_LIBOQS_FOLDER' ..."
     mkdir -p $_LIBOQS_FOLDER
@@ -88,7 +103,9 @@ if [ -n "${KEM_HELPER_ALL_ALGS}" ]; then
         -DBUILD_SHARED_LIBS=OFF \
         -DOQS_USE_OPENSSL=OFF \
         -DOQS_DIST_BUILD=ON \
-        ${CMAKE_CROSS_FLAGS}
+        ${CMAKE_CROSS_FLAGS} \
+        ${_MACOS_CMAKE_COMPILER_FLAG} \
+        ${_MACOS_CMAKE_PLATFORM_FLAGS}
 else
     echo "[*] Configuring liboqs (MINIMAL build) ..."
     cmake -GNinja .. \
@@ -99,7 +116,9 @@ else
         -DBUILD_SHARED_LIBS=OFF \
         -DOQS_USE_OPENSSL=OFF \
         -DOQS_DIST_BUILD=ON \
-        ${CMAKE_CROSS_FLAGS}
+        ${CMAKE_CROSS_FLAGS} \
+        ${_MACOS_CMAKE_COMPILER_FLAG} \
+        ${_MACOS_CMAKE_PLATFORM_FLAGS}
 fi
 
 ninja
@@ -120,7 +139,11 @@ echo "Sources '$_SCRIPT_DIR'" > $_OUT_FOLDER/readme.md
 cd $_SCRIPT_DIR
 
 if [[ "$OSTYPE" == "darwin"* ]]; then # macOS
-    gcc main.c base64.c -o $_OUT_FOLDER/kem-helper -Wall -O2 -I$_LIBOQS_INSTALL_FOLDER/include -L$_LIBOQS_INSTALL_FOLDER/lib -loqs -Wl,-stack_size,0x500000 #0x500000 is 5MB
+    ${_MACOS_CC} main.c base64.c -o $_OUT_FOLDER/kem-helper \
+        -Wall -O2 ${_MACOS_CFLAGS} \
+        -I$_LIBOQS_INSTALL_FOLDER/include \
+        -L$_LIBOQS_INSTALL_FOLDER/lib \
+        -loqs -Wl,-stack_size,0x500000 #0x500000 is 5MB
 else # linux
     _LIB_FOLDER=$_LIBOQS_INSTALL_FOLDER/lib
     if [ -d $_LIBOQS_INSTALL_FOLDER/lib64 ]; then 

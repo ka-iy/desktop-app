@@ -19,6 +19,35 @@ echo "############################################"
 echo "### Building IVPN Daemon"
 echo "### OpenVPN and WireGuard will be also recompiled if they are not exists"
 
+# ====== Architecture setup ======
+_HOST_ARCH="$(uname -m)"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+  arm64)
+    _ARCH_FLAG="-arch arm64"
+    _GOARCH="arm64"
+    _OPENSSL_TARGET="darwin64-arm64-cc"
+    _AUTOCONF_HOST="aarch64-apple-darwin"
+    ;;
+  x86_64)
+    _ARCH_FLAG="-arch x86_64"
+    _GOARCH="amd64"
+    _OPENSSL_TARGET="darwin64-x86_64-cc"
+    _AUTOCONF_HOST="x86_64-apple-darwin"
+    ;;
+  *)
+    echo "ERROR: Unsupported ARCH_TARGET='$ARCH_TARGET'. Use 'arm64' or 'x86_64'."
+    exit 1
+    ;;
+esac
+_DEPLOY_MIN="12.0"
+_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+_CC="$(xcrun -f clang) ${_ARCH_FLAG} -isysroot ${_SDK}"
+_CXX="$(xcrun -f clang++) ${_ARCH_FLAG} -isysroot ${_SDK}"
+export ARCH_TARGET
+echo "    ARCH_TARGET: ${ARCH_TARGET}"
+# ====== End architecture setup ======
+
 if [ "$#" -eq 0 ]
 then
   echo "### Possible arguments:"
@@ -29,20 +58,22 @@ then
 fi
 echo "############################################"
 
-if [[ ! -f "../_deps/openvpn_inst/bin/openvpn" ]] || [[ ! -f "../_deps/wg_inst/wg" ]] || [[ ! -f "../_deps/wg_inst/wireguard-go" ]]
+if [[ ! -f "../_deps/${ARCH_TARGET}/openvpn_inst/bin/openvpn" ]] || [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wg" ]] || [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wireguard-go" ]]
 then
   echo "Please, check/modify required versions at the begining of scripts:"
-  if [[ ! -f "../_deps/openvpn_inst/bin/openvpn" ]]
+  if [[ ! -f "../_deps/${ARCH_TARGET}/openvpn_inst/bin/openvpn" ]]
   then
     echo "    build-openvpn.sh"
   fi
 
-  if [[ ! -f "../_deps/wg_inst/wg" ]] || [[ ! -f "../_deps/wg_inst/wireguard-go" ]]
+  if [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wg" ]] || [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wireguard-go" ]]
   then
     echo "    build-wireguard.sh"
   fi
 
-  read -p "Press enter to start ..."
+  if [ -z "${IVPN_BUILD_SKIP_PROMPT}" ] && [ -z "${GITHUB_ACTIONS}" ]; then
+    read -p "Press enter to start ..."
+  fi
 fi
 
 # Exit immediately if a command exits with a non-zero status.
@@ -103,7 +134,7 @@ else
   if [[ "$@" == *"-norebuild"* ]]
   then
       # check if we need to compile openvpn
-      if [[ ! -f "../_deps/openvpn_inst/bin/openvpn" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/openvpn_inst/bin/openvpn" ]]
       then
         echo "OpenVPN not compiled"
         BuildOpenVPN
@@ -112,7 +143,7 @@ else
       fi
 
       # check if we need to compile WireGuard
-      if [[ ! -f "../_deps/wg_inst/wg" ]] || [[ ! -f "../_deps/wg_inst/wireguard-go" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wg" ]] || [[ ! -f "../_deps/${ARCH_TARGET}/wg_inst/wireguard-go" ]]
       then
         echo "WireGuard not compiled"
         BuildWireGuard
@@ -121,7 +152,7 @@ else
       fi
 
       # check if we need to compile obfs4proxy
-      if [[ ! -f "../_deps/obfs4proxy_inst/obfs4proxy" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/obfs4proxy_inst/obfs4proxy" ]]
       then
         echo "obfs4proxy not compiled"
         BuildObfs4proxy
@@ -130,7 +161,7 @@ else
       fi
 
       # check if we need to compile v2ray
-      if [[ ! -f "../_deps/v2ray_inst/v2ray" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/v2ray_inst/v2ray" ]]
       then
         echo "V2Ray not compiled"
         BuildV2Ray
@@ -139,7 +170,7 @@ else
       fi
 
       # check if we need to compile dnscrypt-proxy
-      if [[ ! -f "../_deps/dnscryptproxy_inst/dnscrypt-proxy" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/dnscryptproxy_inst/dnscrypt-proxy" ]]
       then
         echo "dnscrypt-proxy not compiled"
         BuildDnscryptProxy
@@ -148,7 +179,7 @@ else
       fi
 
       # check if we need to compile kem-helper
-      if [[ ! -f "../_deps/kem-helper/kem-helper-bin/kem-helper" ]]
+      if [[ ! -f "../_deps/${ARCH_TARGET}/kem-helper/kem-helper-bin/kem-helper" ]]
       then
         echo "kem-helper not compiled"
         BuildKemHelper
@@ -210,6 +241,16 @@ then
   esac
 fi
 
-CGO_CFLAGS=-mmacosx-version-min=10.10 CGO_LDFLAGS=-mmacosx-version-min=10.10 go build -tags "${BUILDTAGS_NOWIFI} ${BUILDTAGS_USE_LIBVPN} ${BUILDTAGS_DEBUG}" -o "IVPN Agent" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+mkdir -p "bin/${ARCH_TARGET}"
 
-echo "Cpmpiled daemon binary: '$(pwd)/IVPN Agent'"
+CC="${_CC}" \
+CGO_CFLAGS="-mmacosx-version-min=${_DEPLOY_MIN} ${_ARCH_FLAG} -isysroot ${_SDK}" \
+CGO_LDFLAGS="-mmacosx-version-min=${_DEPLOY_MIN} ${_ARCH_FLAG} -isysroot ${_SDK}" \
+GOOS=darwin GOARCH="${_GOARCH}" CGO_ENABLED=1 \
+go build \
+    -tags "${BUILDTAGS_NOWIFI} ${BUILDTAGS_USE_LIBVPN} ${BUILDTAGS_DEBUG}" \
+    -o "bin/${ARCH_TARGET}/IVPN Agent" \
+    -trimpath \
+    -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+
+echo "Compiled daemon binary: '$(pwd)/bin/${ARCH_TARGET}/IVPN Agent'"

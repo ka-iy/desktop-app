@@ -46,9 +46,26 @@ echo "[ ] *** Compiling IVPN helper ***"
 echo "    Version:                 '${_VERSION}'"
 echo "    Apple DevID certificate: '${_SIGN_CERT}'"
 
+# ====== Architecture setup ======
+_HOST_ARCH="$(uname -m)"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+  arm64)  _ARCH_FLAG="-arch arm64" ;;
+  x86_64) _ARCH_FLAG="-arch x86_64" ;;
+  *)
+    echo "ERROR: Unsupported ARCH_TARGET='$ARCH_TARGET'. Use 'arm64' or 'x86_64'."
+    exit 1
+    ;;
+esac
+_DEPLOY_MIN="12.0"
+_SDK="$(xcrun --sdk macosx --show-sdk-path)"
+echo "    ARCH_TARGET: ${ARCH_TARGET}"
+# ====== End architecture setup ======
+
 # ======================== VARS =========================
 _CFLAGS=""
-_OUT_BINARY="net.ivpn.client.Helper"
+_OUT_DIR="_out/${ARCH_TARGET}"
+_OUT_BINARY="${_OUT_DIR}/net.ivpn.client.Helper"
 _PLIST_LAUNCHD="IVPN Helper-Launchd.plist"
 
 _PLIST_INFO_TEMPLATE="IVPN Helper-Info_template.plist"
@@ -71,9 +88,12 @@ plutil -replace CFBundleVersion -xml "<string>${_VERSION}</string>" "${_PLIST_IN
 
 # ===================== COMPILING =======================
 echo "[+] Compiling helper ..."
+mkdir -p "${_OUT_DIR}"
 cc -D TEAM_IDENTIFIER="\"${_SIGN_CERT}\"" \
         -O2 \
-        -mmacosx-version-min=10.6 \
+        ${_ARCH_FLAG} \
+        -isysroot ${_SDK} \
+        -mmacosx-version-min=${_DEPLOY_MIN} \
         -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __info_plist -Xlinker "${_PLIST_INFO}" \
         -Xlinker -sectcreate -Xlinker __TEXT -Xlinker __launchd_plist -Xlinker "${_PLIST_LAUNCHD}" \
         -o "${_OUT_BINARY}" helper.c \
