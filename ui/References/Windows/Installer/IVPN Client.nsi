@@ -479,7 +479,7 @@ Section "${PRODUCT_NAME}" SecIVPN
   ; install service
   DetailPrint "Installing IVPN Client service..."
   nsExec::ExecToLog '"$SYSDIR\sc.exe" create "IVPN Client" binPath= "\"$INSTDIR\IVPN Service.exe\"" start= auto'
-  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "IVPN Client" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)(A;;RPWPDTLO;;;S-1-1-0)"'
+  nsExec::ExecToLog '"$SYSDIR\sc.exe" sdset "IVPN Client" "D:(A;;CCLCSWRPWPDTLOCRRC;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)"'
 
   ; add service to firewall
   ;nsExec::ExecToLog '"$SYSDIR\netsh.exe" firewall add allowedprogram "$INSTDIR\IVPN Service.exe" "IVPN Service" ENABLE'
