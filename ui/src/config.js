@@ -32,7 +32,7 @@ function GetResourcesPath() {
 }
 
 export default {
-  MinRequiredDaemonVer: "3.15.10",
+  MinRequiredDaemonVer: "3.15.13",
 
   MinimizedUIWidth: 320,
   MaximizedUIWidth: 800,
