@@ -23,7 +23,6 @@ devcon\devcon.exe                                  = ui\References\Windows\Insta
 [x86_64] OpenVPN\libssl-3-x64.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\libssl-3-x64.dll
 [x86_64] OpenVPN\libcrypto-3-x64.dll               = daemon\References\Windows\OpenVPN\{ARCH}\libcrypto-3-x64.dll
 [x86_64] OpenVPN\vcruntime140.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll
-[x86_64] OpenVPN\tap\license.txt                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\license.txt
 [x86_64] OpenVPN\tap\OemVista.inf                  = daemon\References\Windows\OpenVPN\{ARCH}\tap\OemVista.inf
 [x86_64] OpenVPN\tap\tapivpn.cat                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.cat
 [x86_64] OpenVPN\tap\tapivpn.sys                   = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.sys
