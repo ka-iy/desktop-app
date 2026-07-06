@@ -54,13 +54,20 @@ These instructions enable you to get the project up and running on your local ma
 
 #### Windows
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Build Tools for Visual Studio 2019 ('Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v142 C++ x64 build tools', 'C++ ATL for latest v142 build tools'); gcc compiler (e.g. [TDM GCC](https://jmeubank.github.io/tdm-gcc/download/)).  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (22.12.0)](https://nodejs.org/); [nsis3](https://nsis.sourceforge.io/Download); Visual Studio 2022 with 'Windows 10 SDK 10.0.19041.0', 'Windows 11 SDK 10.0.22000.0', 'MSVC v143 C++ x64 build tools', 'C++ ATL for latest v143 build tools'; gcc compiler (e.g. [MSYS2 MinGW-w64 UCRT](https://www.msys2.org/)).  
+
+**Additional requirements for ARM64 builds:**  
+Visual Studio 2022 individual components (VS Installer > Modify > Individual components):  
+- 'MSVC v143 - VS 2022 C++ ARM64 build tools (Latest)'  
+- 'C++ ATL for latest v143 build tools (ARM64/ARM64EC)' - required for native DLL (IVPN Helpers Native) ARM64 build  
+
+[llvm-mingw](https://github.com/mstorsjo/llvm-mingw/releases/latest) x86_64-hosted cross-compiler (`llvm-mingw-YYYYMMDD-ucrt-x86_64.zip`) - required for CGO cross-compilation of the daemon (wifiNotifier) targeting ARM64; set the `LLVM_MINGW` environment variable to its root folder.  
 
 <a name="requirements_macos"></a>
 
 #### macOS
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); Xcode Command Line Tools.  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (22.12.0)](https://nodejs.org/); Xcode Command Line Tools.  
 To compile the OpenVPN/OpenSSL binaries locally, additional packages are required:  
 ```bash
 brew install autoconf automake libtool
@@ -76,10 +83,17 @@ pip3 install pytest pytest-xdist pyyaml
 
 #### Linux
 
-[Go 1.21+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (18)](https://nodejs.org/); gcc; make; [FPM](https://fpm.readthedocs.io/en/latest/installation.html); curl; rpm; libiw-dev.  
+[Go 1.26+](https://golang.org/); Git; [npm](https://www.npmjs.com/get-npm); [Node.js (22.12.0)](https://nodejs.org/); gcc; make; [FPM](https://fpm.readthedocs.io/en/latest/installation.html); curl; rpm; libiw-dev.  
 
 To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional packages are required:  
 `sudo apt install astyle cmake gcc ninja-build libssl-dev python3-pytest python3-pytest-xdist unzip xsltproc doxygen graphviz python3-yaml valgrind`
+
+**Additional requirements for ARM64 cross-compilation** (on x86_64 host):  
+```bash
+sudo apt-get install gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+sudo dpkg --add-architecture arm64 && sudo apt-get update
+sudo apt-get install libssl-dev:arm64 liblz4-dev:arm64 liblzo2-dev:arm64 libpam0g-dev:arm64
+```
 
 <a name="compilation"></a>
 
@@ -90,15 +104,20 @@ To compile  [liboqs](https://github.com/open-quantum-safe/liboqs), additional pa
 #### Windows
 
 Instructions to build installer of IVPN Client *(daemon + CLI + UI)*:  
-Use Developer Command Prompt for Visual Studio (required for building native sub-projects).  
+Use **Developer PowerShell for VS 2022** (required for building native sub-projects).  
 
-```bash
+```powershell
 git clone https://github.com/ivpn/desktop-app.git
 cd desktop-app/ui/References/Windows
-build.bat
+
+# Compile all binaries (no signing, no installer)
+.\build.bat
+
+# Build unsigned installer
+.\package-release.ps1
 ```
 
-  Compiled binaries can be found at: `ui/References/Windows/bin`  
+Compiled installer can be found at: `ui/References/Windows/bin`  
 
 <a name="compilation_macos"></a>
 
@@ -109,10 +128,18 @@ Instructions to build DMG package of IVPN Client *(daemon + CLI + UI)*:
 ```bash
 git clone https://github.com/ivpn/desktop-app.git
 cd desktop-app/ui/References/macOS
-./build.sh -v <VERSION_X.X.X> -c <APPLE_DevID_CERTIFICATE>
+
+# Build for Apple Silicon (arm64):
+ARCH_TARGET=arm64 ./build.sh -c <APPLE_DevID_CERTIFICATE>
+
+# Build for Intel (x86_64):
+ARCH_TARGET=x86_64 ./build.sh -c <APPLE_DevID_CERTIFICATE>
 ```
 
-Compiled binary can be found at: `ui/References/macOS/_compiled`  
+Compiled DMG files can be found at: `ui/References/macOS/_compiled/`  
+- `IVPN-X.X.X-arm64.dmg` — Apple Silicon (M1/M2/M3)  
+- `IVPN-X.X.X.dmg` — Intel (x86_64)  
+
 *([some info](https://github.com/ivpn/desktop-app/issues/161) about Apple Developer ID)*  
 
 <a name="compilation_linux"></a>
@@ -128,19 +155,27 @@ cd desktop-app
 Base package *(daemon + CLI)*:
 
 ```bash
+# native build (host architecture)
 ./cli/References/Linux/build.sh
+
+# ARM64 cross-compile (on x86_64 host)
+ARCH_TARGET=arm64 ./cli/References/Linux/build.sh
 ```
 
-Compiled DEB/RPM packages can be found at `cli/References/Linux/_out_bin`  
+Compiled DEB/RPM packages can be found at `cli/References/Linux/_out_bin/<arch>/`  
 *Note: You can refer to [manual installation guide for Linux](docs/readme-build-manual.md).*
 
 Graphical User Interface *(UI)*:
 
 ```bash
+# native build
 ./ui/References/Linux/build.sh
+
+# ARM64 cross-compile
+ARCH_TARGET=arm64 ./ui/References/Linux/build.sh
 ```
 
-Compiled DEB/RPM packages can be found at `ui/References/Linux/_out_bin`  
+Compiled DEB/RPM packages can be found at `ui/References/Linux/_out_bin/<arch>/`  
 *Note: It is required to have installed IVPN Daemon before running IVPN UI.*  
 
 <a name="versioning"></a>

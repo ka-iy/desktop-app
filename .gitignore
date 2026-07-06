@@ -1,18 +1,8 @@
 .DS_Store
-daemon/References/Windows/OpenVPN/obfsproxy/obfs4proxy.exe
-/daemon/References/Linux/_deps/*
-daemon/References/Windows/dnscrypt-proxy/
-daemon/References/Windows/etc/dnscrypt-proxy/
-daemon/daemon
-daemon/daemon.exe
-daemon/References/Windows/Native Projects/IVPN KEM Helper/.*
-daemon/References/Windows/Native Projects/IVPN KEM Helper/x64/*
-daemon/References/Windows/kem/kem-helper.exe
-daemon/References/common/kem-helper/_out_linux/
-daemon/References/common/kem-helper/_out_macos/
-daemon/References/common/kem-helper/_out_windows/
-daemon/References/Windows/v2ray/v2ray.exe
 ui/build
 ui/out/
 ui/References/macOS/HelperProjects/launchAgent/_out
-daemon/References/Windows/etc/eaa
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/ivpn-split-tunnel/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/others/SplitTunTestConsole/ARM64/
+daemon/References/Windows/Native Projects/IVPN Split Tunnel Driver/_out_bin/

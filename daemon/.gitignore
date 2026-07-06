@@ -1,25 +1,36 @@
 .DS_Store
 IVPN Agent
+daemon
+daemon.exe
 References/macOS/_deps
-References/Windows/IVPN Firewall Native x64.dll
 References/Windows/IVPN Firewall Native.dll
-References/Windows/IVPN Helpers Native x64.dll
 References/Windows/IVPN Helpers Native.dll
 References/Windows/Native Projects/bin/
-References/Windows/Native Projects/IVPN Firewall Native/Release/
 References/Windows/Native Projects/IVPN Firewall Native/x64/
-References/Windows/Native Projects/IVPN Helpers Native/Release/
+References/Windows/Native Projects/IVPN Firewall Native/ARM64/
 References/Windows/Native Projects/IVPN Helpers Native/x64/
+References/Windows/Native Projects/IVPN Helpers Native/ARM64/
+References/Windows/Native Projects/IVPN KEM Helper/.*
+References/Windows/Native Projects/IVPN KEM Helper/x64/*
 bin/
-References/Windows/WintunInstaller/.deps/
 References/Windows/WintunInstaller/obj/
 References/Windows/WireGuard/
+References/Windows/OpenVPN/obfsproxy/
+References/Windows/v2ray/
+References/Windows/dnscrypt-proxy/
+References/Windows/etc/dnscrypt-proxy/
+References/Windows/kem/
+References/common/kem-helper/_out_linux/
+References/common/kem-helper/_out_macos/
+References/common/kem-helper/_out_windows/
 .deps/
 References/Windows/etc/port.txt
+References/Windows/etc/eaa
 References/Windows/log/
 References/Windows/etc/settings.json
 __debug_bin
 References/Windows/etc/openvpn.cfg
+/References/Linux/_deps/*
 /References/linux/tmp/*
 /References/linux/etc/settings.json
 /References/Linux/etc/settings.json

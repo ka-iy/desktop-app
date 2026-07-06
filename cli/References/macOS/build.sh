@@ -4,12 +4,27 @@ cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 OUT_DIR="$SCRIPT_DIR/_out_bin"
-OUT_FILE="$OUT_DIR/ivpn"
+
+# ====== Architecture setup ======
+_HOST_ARCH="$(uname -m)"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+  arm64)  _GOARCH="arm64" ;;
+  x86_64) _GOARCH="amd64" ;;
+  *)
+    echo "ERROR: Unsupported ARCH_TARGET='$ARCH_TARGET'. Use 'arm64' or 'x86_64'."
+    exit 1
+    ;;
+esac
+echo "    ARCH_TARGET: ${ARCH_TARGET}"
+# ====== End architecture setup ======
+
+OUT_FILE="$OUT_DIR/${ARCH_TARGET}/ivpn"
 
 set -e
 
 # make output dir if not exists
-mkdir -p $OUT_DIR
+mkdir -p "$OUT_DIR/${ARCH_TARGET}"
 
 # version info variables
 VERSION=""
@@ -38,9 +53,9 @@ cd $SCRIPT_DIR/../../
 if [[ "$@" == *"-debug"* ]]
 then
     echo "Compiling in DEBUG mode"
-    go build -tags debug -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+    GOOS=darwin GOARCH=${_GOARCH} go build -tags debug -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
 else
-    go build -o "$OUT_FILE" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+    GOOS=darwin GOARCH=${_GOARCH} go build -o "$OUT_FILE" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
 fi
 
 echo "Compiled CLI binary: '$OUT_FILE'"

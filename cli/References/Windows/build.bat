@@ -2,9 +2,16 @@
 setlocal
 set SCRIPTDIR=%~dp0
 set APPVER=%1
+
+rem Determine target architecture (x86_64 or arm64). Default: host arch.
+if "%~2" == "" (
+    if /I "%PROCESSOR_ARCHITECTURE%" == "ARM64" ( set "_ARCH=arm64" ) else ( set "_ARCH=x86_64" )
+) else (
+    set "_ARCH=%~2"
+)
+
 set COMMIT=""
 set DATE=""
-set CERT_SHA1=%2
 
 echo ==================================================
 echo ============ BUILDING IVPN CLI ===================
@@ -28,36 +35,27 @@ if NOT "%DATE%" == "" set DATE=%DATE: =%
 echo APPVER: %APPVER%
 echo COMMIT: %COMMIT%
 echo DATE  : %DATE%
+echo ARCH  : %_ARCH%
 
 call :build || goto :error
 goto :success
 
 :build
-	echo [*] Building IVPN CLI
+	echo [*] Building IVPN CLI (%_ARCH%)
 
-	if exist "bin\x86\cli\ivpn.exe" del "bin\x86\cli\ivpn.exe" || exit /b 1
 	if exist "bin\x86_64\cli\ivpn.exe" del "bin\x86_64\cli\ivpn.exe" || exit /b 1
+	if exist "bin\arm64\cli\ivpn.exe"  del "bin\arm64\cli\ivpn.exe"  || exit /b 1
 
-	set GOOS=windows
+	set "GOOS=windows"
 
-	rem echo [ ] x86 ...
-	rem set GOARCH=386
-	rem go build -tags release -o "bin\x86\cli\ivpn.exe" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=%APPVER% -X github.com/ivpn/desktop-app/daemon/version._commit=%COMMIT% -X github.com/ivpn/desktop-app/daemon/version._time=%DATE%" || exit /b 1
-
-	echo [ ] x86_64 ...
-	set GOARCH=amd64
-	go build -tags release -o "bin\x86_64\cli\ivpn.exe" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=%APPVER% -X github.com/ivpn/desktop-app/daemon/version._commit=%COMMIT% -X github.com/ivpn/desktop-app/daemon/version._time=%DATE%" || exit /b 1
-
-	set TIMESTAMP_SERVER=http://timestamp.digicert.com
-	if NOT "%CERT_SHA1%" == "" (
-		echo.
-		echo Signing binary by certificate:  %CERT_SHA1% timestamp: %TIMESTAMP_SERVER%
-		echo.
-		signtool.exe sign /tr %TIMESTAMP_SERVER% /td sha256 /fd sha256 /sha1 %CERT_SHA1% /v "bin\x86_64\cli\ivpn.exe" || exit /b 1
-		echo.
-		echo Signing SUCCES
-		echo.
+	if /I "%_ARCH%" == "arm64" (
+		set "GOARCH=arm64"
+	) else (
+		set "GOARCH=amd64"
 	)
+
+	echo [ ] %_ARCH% ...
+	go build -tags release -o "bin\%_ARCH%\cli\ivpn.exe" -trimpath -ldflags "-s -w -X github.com/ivpn/desktop-app/daemon/version._version=%APPVER% -X github.com/ivpn/desktop-app/daemon/version._commit=%COMMIT% -X github.com/ivpn/desktop-app/daemon/version._time=%DATE%" || exit /b 1
 
 	goto :eof
 

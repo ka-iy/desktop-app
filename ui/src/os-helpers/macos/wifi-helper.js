@@ -167,7 +167,9 @@ function appyAgentState() {
     else if (!isAgentRequired && agentStatus == AGENT_STATUS.Enabled) {
       UninstallAgent()
       // request the daemon to refresh the current network info
-      daemonClient.RequestWiFiCurrentNetwork();
+      daemonClient.RequestWiFiCurrentNetwork().catch((e) => {
+        console.log("(wifi-helper) RequestWiFiCurrentNetwork failed:", e.message);
+      });
     }
 
     updateWarningMessage();
@@ -208,7 +210,9 @@ function UninstallAgent() {
 function onLocationServicesAuthorizationChange() {
   updateWarningMessage();
   // request the daemon to refresh the current network info
-  daemonClient.RequestWiFiCurrentNetwork();
+  daemonClient.RequestWiFiCurrentNetwork().catch((e) => {
+    console.log("(wifi-helper) RequestWiFiCurrentNetwork failed:", e.message);
+  });
 }
 
 function updateWarningMessage() {

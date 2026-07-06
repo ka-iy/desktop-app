@@ -1,9 +1,28 @@
 #!/bin/bash
 
+# Build the IVPN daemon (ivpn-service) binary.
+#
+# Usage:
+#   ./build-daemon.sh [-v <version>]
+#
+# Environment variables:
+#   ARCH_TARGET   Target architecture: amd64 (default on x86_64 host) or arm64.
+#                 Output: scripts/_out_bin/<arch>/ivpn-service
 cd "$(dirname "$0")"
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-OUT_DIR="$SCRIPT_DIR/_out_bin"
+
+# --- Target architecture ---
+_HOST_ARCH="$(uname -m)"
+[ "$_HOST_ARCH" = "aarch64" ] && _HOST_ARCH="arm64"
+[ "$_HOST_ARCH" = "x86_64"  ] && _HOST_ARCH="amd64"
+ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+    amd64|arm64) ;;
+    *) echo "[!] ERROR: unsupported ARCH_TARGET='$ARCH_TARGET'. Must be 'amd64' or 'arm64'."; exit 1 ;;
+esac
+
+OUT_DIR="$SCRIPT_DIR/_out_bin/$ARCH_TARGET"
 OUT_FILE="$OUT_DIR/ivpn-service"
 
 set -e
@@ -14,23 +33,15 @@ mkdir -p $OUT_DIR
 # version info variables
 VERSION=""
 DATE="$(date "+%Y-%m-%d")"
-COMMIT=""
+COMMIT="$(git rev-list -1 HEAD)"
 
 # reading version info from arguments
-while getopts ":v:c:" opt; do
+while getopts ":v:" opt; do
   case $opt in
     v) VERSION="$OPTARG"
     ;;
-    c) COMMIT="$OPTARG"
-    ;;
-#    \?) echo "Invalid option -$OPTARG" >&2
-#   ;;
   esac
 done
-
-if [ -z "$COMMIT" ]; then
-  COMMIT="$(git rev-list -1 HEAD)"
-fi
 
 # updating servers.json
 cd $SCRIPT_DIR
@@ -40,6 +51,7 @@ echo "!!!!!!!!!!!!!!!!!!!! INFO !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "Version: $VERSION"
 echo "Date   : $DATE"
 echo "Commit : $COMMIT"
+echo "Arch   : $ARCH_TARGET"
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
 # Build
@@ -58,7 +70,7 @@ if [ ! -z "$IVPN_NO_WIFI" ]; then
   BUILDTAG_NOWIFI="nowifi"
 fi
 
-CGO_ENABLED=0 go build -buildmode=pie -tags "${BUILDTAG_DEBUG} ${BUILDTAG_NOWIFI}" -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
+GOARCH=$ARCH_TARGET CGO_ENABLED=0 go build -buildmode=pie -tags "${BUILDTAG_DEBUG} ${BUILDTAG_NOWIFI}" -o "$OUT_FILE" -trimpath -ldflags "-X github.com/ivpn/desktop-app/daemon/version._version=$VERSION -X github.com/ivpn/desktop-app/daemon/version._commit=$COMMIT -X github.com/ivpn/desktop-app/daemon/version._time=$DATE"
 
 echo "Compiled binary: '$OUT_FILE'"
 

@@ -1,0 +1,89 @@
+; IVPN Windows Release Manifest
+; Used by build.bat to stage files into the installer temp directory.
+;
+; Format: DEST[=SOURCE]
+;   DEST   - destination path in the installer staging dir (flat, no arch subdir)
+;   SOURCE - source path relative to the project root (optional)
+;            if omitted, SOURCE is assumed to be the same path as DEST
+;            relative to the project root
+;            {ARCH} is replaced with the target arch (x86_64 or arm64)
+;
+; Optional line prefix [x86_64] or [arm64] limits the entry to that arch only.
+; Lines starting with ; are comments and are ignored.
+
+; -------------------------------------------------------------------------
+; Installer assets
+; -------------------------------------------------------------------------
+icon.ico                                           = ui\References\Windows\Installer\icon.ico
+
+; -------------------------------------------------------------------------
+; Go-compiled binaries (produced by build_service / build_cli steps)
+; -------------------------------------------------------------------------
+IVPN Service.exe                                   = daemon\bin\{ARCH}\IVPN Service.exe
+cli\ivpn.exe                                       = cli\bin\{ARCH}\cli\ivpn.exe
+
+; -------------------------------------------------------------------------
+; Native C++ DLLs (VS output dirs use x64 / ARM64 naming)
+; -------------------------------------------------------------------------
+[x86_64] IVPN Helpers Native.dll                   = daemon\References\Windows\Native Projects\bin\Release\x64\IVPN Helpers Native.dll
+[x86_64] IVPN Firewall Native.dll                  = daemon\References\Windows\Native Projects\bin\Release\x64\IVPN Firewall Native.dll
+[arm64]  IVPN Helpers Native.dll                   = daemon\References\Windows\Native Projects\bin\Release\ARM64\IVPN Helpers Native.dll
+[arm64]  IVPN Firewall Native.dll                  = daemon\References\Windows\Native Projects\bin\Release\ARM64\IVPN Firewall Native.dll
+
+; -------------------------------------------------------------------------
+; Split Tunnel Driver
+; -------------------------------------------------------------------------
+SplitTunnelDriver\ivpn-split-tunnel.sys            = daemon\References\Windows\SplitTunnelDriver\{ARCH}\ivpn-split-tunnel.sys
+
+; -------------------------------------------------------------------------
+; Common reference files
+; -------------------------------------------------------------------------
+etc\ca.crt                                         = daemon\References\common\etc\ca.crt
+etc\servers.json                                   = daemon\References\common\etc\servers.json
+etc\ta.key                                         = daemon\References\common\etc\ta.key
+etc\dnscrypt-proxy-template.toml                   = daemon\References\common\etc\dnscrypt-proxy-template.toml
+
+; -------------------------------------------------------------------------
+; Vendor binaries (daemon\References\Windows)
+; -------------------------------------------------------------------------
+WireGuard\wg.exe                                   = daemon\References\Windows\WireGuard\{ARCH}\wg.exe
+WireGuard\wireguard.exe                            = daemon\References\Windows\WireGuard\{ARCH}\wireguard.exe
+dnscrypt-proxy\dnscrypt-proxy.exe                  = daemon\References\Windows\dnscrypt-proxy\{ARCH}\dnscrypt-proxy.exe
+kem\kem-helper.exe                                 = daemon\References\Windows\kem\{ARCH}\kem-helper.exe
+v2ray\v2ray.exe                                    = daemon\References\Windows\v2ray\{ARCH}\v2ray.exe
+OpenVPN\obfsproxy\obfs4proxy.exe                   = daemon\References\Windows\OpenVPN\obfsproxy\{ARCH}\obfs4proxy.exe
+
+; -------------------------------------------------------------------------
+; devcon
+; -------------------------------------------------------------------------
+devcon\devcon.exe                                  = ui\References\Windows\Installer\devcon\{ARCH}\devcon.exe
+devcon\vcruntime140.dll                            = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll
+
+; -------------------------------------------------------------------------
+; OpenSSL
+; -------------------------------------------------------------------------
+OpenVPN\openssl.exe                                = daemon\References\Windows\OpenVPN\{ARCH}\openssl.exe
+OpenVPN\vcruntime140.dll                           = daemon\References\Windows\OpenVPN\{ARCH}\vcruntime140.dll
+
+; -------------------------------------------------------------------------
+; TUN / TAP driver (OpenVPN) 
+; -------------------------------------------------------------------------
+OpenVPN\tap\OemVista.inf                           = daemon\References\Windows\OpenVPN\{ARCH}\tap\OemVista.inf
+OpenVPN\tap\tapivpn.cat                            = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.cat
+OpenVPN\tap\tapivpn.sys                            = daemon\References\Windows\OpenVPN\{ARCH}\tap\tapivpn.sys
+
+; -------------------------------------------------------------------------
+; x86_64 OpenVPN 
+; -------------------------------------------------------------------------
+[x86_64] OpenVPN\openvpn.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openvpn.exe
+[x86_64] OpenVPN\libcrypto-3-x64.dll               = daemon\References\Windows\OpenVPN\{ARCH}\libcrypto-3-x64.dll
+[x86_64] OpenVPN\libpkcs11-helper-1.dll            = daemon\References\Windows\OpenVPN\{ARCH}\libpkcs11-helper-1.dll
+[x86_64] OpenVPN\libssl-3-x64.dll                  = daemon\References\Windows\OpenVPN\{ARCH}\libssl-3-x64.dll
+
+; -------------------------------------------------------------------------
+; arm64 OpenVPN 
+; -------------------------------------------------------------------------
+[arm64] OpenVPN\openvpn.exe                       = daemon\References\Windows\OpenVPN\{ARCH}\openvpn.exe
+[arm64] OpenVPN\libcrypto-3-arm64.dll             = daemon\References\Windows\OpenVPN\{ARCH}\libcrypto-3-arm64.dll
+[arm64] OpenVPN\libpkcs11-helper-1.dll            = daemon\References\Windows\OpenVPN\{ARCH}\libpkcs11-helper-1.dll
+[arm64] OpenVPN\libssl-3-arm64.dll                = daemon\References\Windows\OpenVPN\{ARCH}\libssl-3-arm64.dll

@@ -57,7 +57,6 @@ RequestExecutionLevel admin
 ; ---------
 
 var /GLOBAL StartMenuFolder
-var /GLOBAL BitDir
 
 Var HEADLINE_FONT
 
@@ -188,9 +187,7 @@ Var STR_RETURN_VAR
   SetShellVarContext all
 
   SetRegView 64
-  StrCpy $BitDir "x86_64"
   StrCpy $StartMenuFolder "IVPN"
-  DetailPrint "Running on architecture: $BitDir"
 !macroend
 
 Function .onInit
@@ -341,12 +338,12 @@ Section "${PRODUCT_NAME}" SecIVPN
   ignoreclientstop:
 
   ; check is library can be overwritten
-  Push "$INSTDIR\IVPN Firewall Native x64.dll" ; file to check for writting
+  Push "$INSTDIR\IVPN Firewall Native.dll" ; file to check for writting
   Push 15000 ; 15 seconds
   Call WaitFileOpenForWritting
 
   ; check is library can be overwritten
-  Push "$INSTDIR\IVPN Helpers Native x64.dll" ; file to check for writting
+  Push "$INSTDIR\IVPN Helpers Native.dll" ; file to check for writting
   Push 15000 ; 15 seconds
   Call WaitFileOpenForWritting
 
@@ -387,7 +384,7 @@ Section "${PRODUCT_NAME}" SecIVPN
 
   ; check if TUN/TAP driver is installed
   IntOp $R5 0 & 0
-  nsExec::ExecToStack '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" hwids ${PRODUCT_TAP_WIN_COMPONENT_ID}'
+  nsExec::ExecToStack '"$INSTDIR\devcon\${DEVCON_BASENAME}" hwids ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   IntOp $R5 $R5 | $R0
   DetailPrint "${DEVCON_BASENAME} hwids returned: $R0"
@@ -407,7 +404,7 @@ Section "${PRODUCT_NAME}" SecIVPN
     ${EndIf}
 
     DetailPrint "TAP $R1 (${PRODUCT_TAP_WIN_COMPONENT_ID}) (May require confirmation)"
-    nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" $R1 "$INSTDIR\OpenVPN\$BitDir\tap\OemVista.inf" ${PRODUCT_TAP_WIN_COMPONENT_ID}'
+    nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" $R1 "$INSTDIR\OpenVPN\tap\OemVista.inf" ${PRODUCT_TAP_WIN_COMPONENT_ID}'
     Pop $R0 # return value/error/timeout
 
     ${If} $R0 == ""
@@ -434,7 +431,7 @@ Section "${PRODUCT_NAME}" SecIVPN
 
     ; check if TUN/TAP driver is installed
     IntOp $R5 0 & 0
-    nsExec::ExecToStack '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" hwids ${DRIVER_SPLIT_TUNNEL_ID}'
+    nsExec::ExecToStack '"$INSTDIR\devcon\${DEVCON_BASENAME}" hwids ${DRIVER_SPLIT_TUNNEL_ID}'
     Pop $R0 # return value/error/timeout
     IntOp $R5 $R5 | $R0
     DetailPrint "${DEVCON_BASENAME} hwids returned: $R0"
@@ -454,7 +451,7 @@ Section "${PRODUCT_NAME}" SecIVPN
       ${EndIf}
 
       DetailPrint "Split-Tunnel Driver $R1 (${DRIVER_SPLIT_TUNNEL_ID}) (May require confirmation)"
-      nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" $R1 "$INSTDIR\SplitTunnelDriver\$BitDir\ivpn-split-tunnel.inf" ${DRIVER_SPLIT_TUNNEL_ID}'
+      nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" $R1 "$INSTDIR\SplitTunnelDriver\ivpn-split-tunnel.inf" ${DRIVER_SPLIT_TUNNEL_ID}'
       Pop $R0 # return value/error/timeout
 
       IntOp $R5 $R5 | $R0
@@ -546,13 +543,13 @@ Section "Uninstall"
 
   ; uninstall TUN/TAP driver
   DetailPrint "Removing TUN/TAP device..."
-  nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
+  nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" remove ${PRODUCT_TAP_WIN_COMPONENT_ID}'
   Pop $R0 # return value/error/timeout
   DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
 
   ;; uninstall Split-Tunnell driver
   ;DetailPrint "Removing Split-Tunnell driver..."
-  ;nsExec::ExecToLog '"$INSTDIR\devcon\$BitDir\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
+  ;nsExec::ExecToLog '"$INSTDIR\devcon\${DEVCON_BASENAME}" remove ${DRIVER_SPLIT_TUNNEL_ID}'
   ;Pop $R0 # return value/error/timeout
   ;DetailPrint "${DEVCON_BASENAME} remove returned: $R0"
 
@@ -616,6 +613,7 @@ archcheck:
     ${If} ${RunningX64}
         goto end
     ${EndIf}
+    ; ${RunningX64} returns true for both x64 and ARM64 (GetNativeSystemInfo: wProcessorArchitecture != 0)
     MessageBox MB_ICONSTOP|MB_OK "Unsupported architecture.$\nThis version of IVPN Client can only be installed on 64-bit Windows."
     Quit
 end:

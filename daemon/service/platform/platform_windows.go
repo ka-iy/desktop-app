@@ -61,11 +61,6 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	doOsInitForBuild()
 	_installDir := getInstallDir()
 
-	_archDir := "x86_64"
-	if !Is64Bit() {
-		_archDir = "x86"
-	}
-
 	if warnings == nil {
 		warnings = make([]string, 0)
 	}
@@ -88,32 +83,15 @@ func doOsInit() (warnings []string, errors []error, logInfo []string) {
 	openvpnProxyAuthFile = path.Join(settingsDir, "proxyauth.txt")
 	wgConfigFilePath = path.Join(settingsDir, "IVPN.conf") // will be used also for WireGuard service name (e.g. "WireGuardTunnel$IVPN")
 
-	openVpnBinaryPath = path.Join(_installDir, "OpenVPN", _archDir, "openvpn.exe")
 	openvpnCaKeyFile = path.Join(settingsDirCommon, "ca.crt")
 	openvpnTaKeyFile = path.Join(settingsDirCommon, "ta.key")
 	openvpnUpScript = ""
 	openvpnDownScript = ""
 
-	obfsproxyStartScript = path.Join(_installDir, "OpenVPN", "obfsproxy", "obfs4proxy.exe")
-
-	v2rayBinaryPath = path.Join(_installDir, "v2ray", "v2ray.exe")
 	v2rayConfigTmpFile = path.Join(settingsDir, "v2ray.json")
 
-	_wgArchDir := "x86_64"
-	if _, err := os.Stat(path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")); err != nil {
-		_wgArchDir = "x86"
-		if _, err := os.Stat(path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")); err != nil {
-			errors = append(errors, fmt.Errorf("unabale to find WireGuard binary: %s ..<x86_64\\x86>", path.Join(_installDir, "WireGuard")))
-		}
-	}
-	wgBinaryPath = path.Join(_installDir, "WireGuard", _wgArchDir, "wireguard.exe")
-	wgToolBinaryPath = path.Join(_installDir, "WireGuard", _wgArchDir, "wg.exe")
-
-	dnscryptproxyBinPath = path.Join(_installDir, "dnscrypt-proxy/dnscrypt-proxy.exe")
 	dnscryptproxyConfigTemplate = path.Join(settingsDirCommon, "dnscrypt-proxy-template.toml")
 	dnscryptproxyConfigDir = path.Join(_installDir, "dnscrypt-proxy")
-
-	kemHelperBinaryPath = path.Join(_installDir, "kem/kem-helper.exe")
 
 	if _, err := os.Stat(wfpDllPath); err != nil {
 		errors = append(errors, fmt.Errorf("file not exists: '%s'", wfpDllPath))

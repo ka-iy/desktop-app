@@ -1,7 +1,15 @@
 #!/bin/sh
 
-# Usage example:
-#   build-packages.sh -v 0.0.1
+# Build IVPN daemon + CLI and package as DEB/RPM.
+# Calls build-all.sh (daemon deps + daemon), compile-cli.sh, then fpm.
+#
+# Usage:
+#   ./build.sh [-v <version>]
+#
+# Environment variables:
+#   ARCH_TARGET   Target architecture: amd64 (default on x86_64 host) or arm64.
+#   CROSS_ARCH    Cross-compiler selector (auto-derived from ARCH_TARGET).
+#                 Output packages: _out_bin/<arch>/ivpn_<ver>_<arch>.deb/.rpm
 
 # To be able to build DEB/RPM packages, the 'fpm' tool shall be installed
 # (https://fpm.readthedocs.io/en/latest/installing.html)
@@ -49,7 +57,28 @@ CheckLastResult()
 }
 
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-OUT_DIR="$SCRIPT_DIR/_out_bin"
+
+# --- Target architecture ---
+_HOST_ARCH="$(uname -m)"
+[ "$_HOST_ARCH" = "aarch64" ] && _HOST_ARCH="arm64"
+[ "$_HOST_ARCH" = "x86_64"  ] && _HOST_ARCH="amd64"
+export ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+    amd64|arm64) ;;
+    *) echo "[!] ERROR: unsupported ARCH_TARGET='$ARCH_TARGET'. Must be 'amd64' or 'arm64'."; exit 1 ;;
+esac
+export CROSS_ARCH=""
+[ "$ARCH_TARGET" != "$_HOST_ARCH" ] && export CROSS_ARCH="$ARCH_TARGET"
+
+# fpm architecture names differ by package type
+DEB_ARCH="amd64"   # used for DEB
+RPM_ARCH="x86_64"  # used for RPM
+if [ "$ARCH_TARGET" = "arm64" ]; then
+    DEB_ARCH="arm64"
+    RPM_ARCH="aarch64"
+fi
+
+OUT_DIR="$SCRIPT_DIR/_out_bin/${ARCH_TARGET}"
 
 DAEMON_REPO_ABS_PATH=$("./../config/daemon_repo_local_path_abs.sh")
 CheckLastResult "Failed to determine location of IVPN Daemon sources. Plase check 'config/daemon_repo_local_path.txt'"
@@ -75,8 +104,7 @@ then
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../../ui/package.json)"
   if [ -n "$VERSION" ]
   then
-    echo "[ ] You are going to compile IVPN Daemon & CLI 'v${VERSION}' (commit:${COMMIT})"
-    read -p "Press enter to continue" yn
+    echo "[ ] Compiling IVPN Daemon & CLI v${VERSION} (commit:${COMMIT})"
   else    
     echo "Usage:"
     echo "    $0 -v <version>"
@@ -113,12 +141,12 @@ cd $TMPDIRSRVC
 echo "Preparing service..."
 fpm -v $VERSION -n ivpn-service -s pleaserun -t dir --deb-no-default-config-files /usr/bin/ivpn-service
 
-OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/obfs4proxy_inst/obfs4proxy
-WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg-quick
-WG_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/wireguard-tools_inst/wg
-DNSCRYPT_PROXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/dnscryptproxy_inst/dnscrypt-proxy
-V2RAY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/v2ray_inst/v2ray
-KEM_HELPER_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/kem-helper/kem-helper-bin/kem-helper
+OBFSPXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/obfs4proxy_inst/obfs4proxy
+WG_QUICK_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/wireguard-tools_inst/wg-quick
+WG_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/wireguard-tools_inst/wg
+DNSCRYPT_PROXY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/dnscryptproxy_inst/dnscrypt-proxy
+V2RAY_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/v2ray_inst/v2ray
+KEM_HELPER_BIN=$DAEMON_REPO_ABS_PATH/References/Linux/_deps/${ARCH_TARGET}/kem-helper/kem-helper-bin/kem-helper
 
 #if [ "$(find ${DNSCRYPT_PROXY_BIN} -perm 755)" != "${DNSCRYPT_PROXY_BIN}" ] || [ "$(find ${OBFSPXY_BIN} -perm 755)" != "${OBFSPXY_BIN}" ] || [ "$(find ${WG_QUICK_BIN} -perm 755)" != "${WG_QUICK_BIN}" ] || [ "$(find ${WG_BIN} -perm 755)" != "${WG_BIN}" ]
 #then
@@ -209,7 +237,11 @@ CreatePackage()
   #   [*] Before remove (3.3.30 : rpm : 0)
   #   [*] After remove (3.3.30 : rpm : 0)
 
+  _PKG_ARCH=$DEB_ARCH
+  [ "$PKG_TYPE" = "rpm" ] && _PKG_ARCH=$RPM_ARCH
+
   fpm -d openvpn -d iptables $EXTRA_ARGS \
+    --architecture $_PKG_ARCH \
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n ivpn -v $VERSION --url https://www.ivpn.net --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE \
@@ -221,7 +253,7 @@ CreatePackage()
     --after-remove "$SCRIPT_DIR/package_scripts/after-remove.sh" \
     $DAEMON_REPO_ABS_PATH/References/Linux/etc=/opt/ivpn/ \
     $DAEMON_REPO_ABS_PATH/References/common/etc=/opt/ivpn/ \
-    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/ivpn-service=/usr/bin/ \
+    $DAEMON_REPO_ABS_PATH/References/Linux/scripts/_out_bin/${ARCH_TARGET}/ivpn-service=/usr/bin/ \
     $OUT_DIR/ivpn=/usr/bin/ \
     $OUT_DIR/ivpn.bash-completion=/opt/ivpn/etc/ivpn.bash-completion \
     $OBFSPXY_BIN=/opt/ivpn/obfsproxy/obfs4proxy \

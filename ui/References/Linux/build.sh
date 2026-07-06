@@ -1,8 +1,14 @@
 #!/bin/sh
 
-# Usage example:
-#   build-packages.sh -v 0.0.1
+# Build IVPN Electron UI and package as DEB/RPM.
+# Calls compile-ui.sh (electron-builder), then fpm.
 #
+# Usage:
+#   ./build.sh [-v <version>]
+#
+# Environment variables:
+#   ARCH_TARGET   Target architecture: amd64 (default on x86_64 host) or arm64.
+#                 Output packages: _out_bin/<arch>/ivpn-ui_<ver>_<arch>.deb/.rpm
 
 # To be able to build packages the 'fpm' tool shall be installed
 # (https://fpm.readthedocs.io/en/latest/installing.html)
@@ -49,13 +55,40 @@ CheckLastResult()
   fi
 }
 
-ARCH="$( node -e 'console.log(process.arch)' )"
 SCRIPT_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-OUT_DIR="$SCRIPT_DIR/_out_bin"
+
+# --- Target architecture ---
+_HOST_ARCH="$(uname -m)"
+[ "$_HOST_ARCH" = "aarch64" ] && _HOST_ARCH="arm64"
+[ "$_HOST_ARCH" = "x86_64"  ] && _HOST_ARCH="amd64"
+export ARCH_TARGET="${ARCH_TARGET:-$_HOST_ARCH}"
+case "$ARCH_TARGET" in
+    amd64|arm64) ;;
+    *) echo "[!] ERROR: unsupported ARCH_TARGET='$ARCH_TARGET'. Must be 'amd64' or 'arm64'."; exit 1 ;;
+esac
+
+# ARCH follows electron-builder's directory naming convention (x64/arm64)
+ARCH="x64"
+[ "$ARCH_TARGET" = "arm64" ] && ARCH="arm64"
+
+# fpm architecture names differ by package type
+DEB_ARCH="amd64"
+RPM_ARCH="x86_64"
+if [ "$ARCH_TARGET" = "arm64" ]; then
+    DEB_ARCH="arm64"
+    RPM_ARCH="aarch64"
+fi
+
+OUT_DIR="$SCRIPT_DIR/_out_bin/${ARCH_TARGET}"
 APP_UNPACKED_DIR="$SCRIPT_DIR/../../dist/linux-unpacked"
 APP_UNPACKED_DIR_ARCH="$SCRIPT_DIR/../../dist/linux-${ARCH}-unpacked"
 APP_BIN_DIR="$SCRIPT_DIR/../../dist/bin"
 IVPN_DESKTOP_UI2_SOURCES="$SCRIPT_DIR/../../"
+
+# In Snapcraft/LXD builds ensure npm subprocesses resolve the same Node runtime.
+if [ -n "$SNAPCRAFT_PART_INSTALL" ] && [ -d "/snap/node/current/bin" ]; then
+  export PATH="/snap/node/current/bin:$PATH"
+fi
 
 # ---------------------------------------------------------
 # version info variables
@@ -76,8 +109,7 @@ then
   VERSION="$(awk -F: '/"version"/ { gsub(/[" ,\n\r]/, "", $2); print $2 }' ../../package.json)"
   if [ -n "$VERSION" ]
   then
-    echo "[ ] You are going to compile IVPN UI v${VERSION}"
-    read -p "Press enter to continue" yn
+    echo "[ ] Compiling IVPN UI v${VERSION}"
   else    
     echo "Usage:"
     echo "    $0 -v <version>"
@@ -143,8 +175,8 @@ echo "[ ] Renaming: '$APP_UNPACKED_DIR' -> '$APP_BIN_DIR'"
 mv $APP_UNPACKED_DIR $APP_BIN_DIR
 CheckLastResult
 
-if [ ! -z "$SNAPCRAFT_BUILD_ENVIRONMENT" ]; then
-    echo "! SNAPCRAFT_BUILD_ENVIRONMENT detected !"
+if [ -n "$SNAPCRAFT_PART_INSTALL" ]; then
+  echo "! SNAPCRAFT_PART_INSTALL detected !"
     echo "! DEB/RPM packages build skipped !"
     exit 0
 fi
@@ -226,7 +258,11 @@ CreatePackage()
   #   [*] Before remove (3.3.30 : rpm : 0)
   #   [*] After remove (3.3.30 : rpm : 0)
 
+  _PKG_ARCH=$DEB_ARCH
+  [ "$PKG_TYPE" = "rpm" ] && _PKG_ARCH=$RPM_ARCH
+
   fpm -d ivpn $EXTRA_ARGS \
+    --architecture $_PKG_ARCH \
     --rpm-rpmbuild-define "_build_id_links none" \
     --deb-no-default-config-files -s dir -t $PKG_TYPE -n ivpn-ui -v $VERSION --url https://www.ivpn.net --license "GNU GPL3" \
     --template-scripts --template-value pkg=$PKG_TYPE --template-value version=$VERSION \

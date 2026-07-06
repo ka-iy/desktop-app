@@ -30,6 +30,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -45,14 +46,26 @@ func doInitConstantsForBuild() {
 func doOsInitForBuild() {
 	installDir := getInstallDir()
 
-	wfpDllPath = path.Join(installDir, `Native Projects/bin/Release/IVPN Firewall Native x64.dll`)
-	nativeHelpersDllPath = path.Join(installDir, `Native Projects/bin/Release/IVPN Helpers Native x64.dll`)
-	splitTunDriverPath = path.Join(installDir, `SplitTunnelDriver/x86_64/ivpn-split-tunnel.sys`)
-
-	if !Is64Bit() {
-		wfpDllPath = path.Join(installDir, `Native Projects/bin/Release/IVPN Firewall Native.dll`)
-		nativeHelpersDllPath = path.Join(installDir, `Native Projects/bin/Release/IVPN Helpers Native.dll`)
+	// VS Debug output folder: x64 for amd64, ARM64 for arm64
+	_vsArchDir := "x64"
+	_archDir := "x86_64"
+	if runtime.GOARCH == "arm64" {
+		_vsArchDir = "ARM64"
+		_archDir = "arm64"
 	}
+
+	wfpDllPath = path.Join(installDir, "Native Projects/bin/Debug/"+_vsArchDir+"/IVPN Firewall Native.dll")
+	nativeHelpersDllPath = path.Join(installDir, "Native Projects/bin/Debug/"+_vsArchDir+"/IVPN Helpers Native.dll")
+	splitTunDriverPath = path.Join(installDir, "SplitTunnelDriver/"+_archDir+"/ivpn-split-tunnel.sys")
+
+	// In debug builds (source tree), vendor binaries live in arch subdirs
+	openVpnBinaryPath = path.Join(installDir, "OpenVPN", _archDir, "openvpn.exe")
+	obfsproxyStartScript = path.Join(installDir, "OpenVPN", "obfsproxy", _archDir, "obfs4proxy.exe")
+	v2rayBinaryPath = path.Join(installDir, "v2ray", _archDir, "v2ray.exe")
+	wgBinaryPath = path.Join(installDir, "WireGuard", _archDir, "wireguard.exe")
+	wgToolBinaryPath = path.Join(installDir, "WireGuard", _archDir, "wg.exe")
+	dnscryptproxyBinPath = path.Join(installDir, "dnscrypt-proxy", _archDir, "dnscrypt-proxy.exe")
+	kemHelperBinaryPath = path.Join(installDir, "kem", _archDir, "kem-helper.exe")
 
 	fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 	fmt.Printf("!!! DEBUG VERSION !!! wfpDllPath            : '%s'\n", wfpDllPath)

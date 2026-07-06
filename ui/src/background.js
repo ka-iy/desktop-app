@@ -51,7 +51,7 @@ import daemonClient from "./daemon-client";
 import darwinDaemonInstaller from "./daemon-client/darwin-installer";
 import { InitTray } from "./tray";
 import { InitPersistentSettings, SaveSettings } from "./settings-persistent";
-import { IsWindowHasFrame } from "@/platform/platform";
+import { IsWindowHasFrame, IsWindowHasShadow, IsResizableWindow } from "@/platform/platform";
 import { Platform, PlatformEnum } from "@/platform/platform";
 import config from "@/config";
 import { join } from 'path'
@@ -109,6 +109,23 @@ if (!gotTheLock) {
 
 // Specify locale. We do not use other languages, so we can remove all other languages from "locales" folder in production build
 app.commandLine.appendSwitch ('lang', 'en-US');
+
+// Linux: launcher association changed in practice after the Electron 42 upgrade:
+// on native Wayland sessions, GNOME resolves dock icons by desktop file id
+// rather than WM_CLASS. Setting the desktop name explicitly ensures the running
+// process is associated with IVPN.desktop in DEB/RPM installs.
+// Snap is excluded because snapd manages launcher identity for snap apps.
+if (Platform() === PlatformEnum.Linux && !process.env.SNAP) {
+  app.setDesktopName("IVPN.desktop");
+}
+
+// macOS: use the mock keychain backend to avoid repeated Keychain prompts after
+// Electron upgrades (the app signature changes and existing entries are revalidated).
+// This is acceptable here because sensitive data is not stored in Chromium-managed
+// browser storage, and app.safeStorage is not used.
+if (Platform() === PlatformEnum.macOS) {
+  app.commandLine.appendSwitch('use-mock-keychain');
+}
 
 // abortController can be used to cancel active messageBox dialogs when app exiting.
 // Example:
@@ -254,6 +271,10 @@ if (gotTheLock && isAllowedToStart) {
     {
       label: "File",
       submenu: [isMac ? { role: "close" } : { role: "quit" }],
+    },
+    // { role: 'editMenu' }
+    {
+      role: "editMenu",
     },
     // { role: 'windowMenu' }
     {
@@ -734,8 +755,11 @@ function createWindow(doNotShowWhenReady) {
       ? config.MinimizedUIWidth
       : config.MaximizedUIWidth,
     height: 600,
+    hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
     skipTaskbar:
@@ -750,6 +774,10 @@ function createWindow(doNotShowWhenReady) {
   };
 
   win = createBrowserWindow(windowConfig);
+
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
+  // Note: 'will-resize' fires only on Windows and macOS, not on Linux.
+  win.on("will-resize", (event) => { event.preventDefault(); });
 
   // restore window position
   let lastPos = store.state.settings.windowRestorePosition;
@@ -780,7 +808,9 @@ function createWindow(doNotShowWhenReady) {
   // show\hide app from system dock
   updateAppDockVisibility();
 
-  win.once("ready-to-show", () => {   
+  win.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    win.setBounds({ width: windowConfig.width, height: windowConfig.height });
     if (doNotShowWhenReady != true) {   
       win.show();
     }
@@ -824,13 +854,11 @@ function createWindow(doNotShowWhenReady) {
   });
 }
 
-async function applyMinimizedState() {
-  let w = win;
-  if (w == null) return null;
-  const animate = false;
-  if (store.state.settings.minimizedUI)
-    return await w.setBounds({ width: config.MinimizedUIWidth }, animate);
-  else return await w.setBounds({ width: config.MaximizedUIWidth }, animate);
+function applyMinimizedState() {
+  const w = win;
+  if (w == null) return;
+  const desiredW = store.state.settings.minimizedUI ? config.MinimizedUIWidth : config.MaximizedUIWidth;
+  w.setBounds({ width: desiredW });
 }
 
 function onDaemonExiting() {
@@ -853,8 +881,11 @@ function createSettingsWindow(viewName) {
 
     width: 800,
     height: 600,
+    hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
 
@@ -870,6 +901,9 @@ function createSettingsWindow(viewName) {
 
   settingsWindow = createBrowserWindow(windowConfig);
 
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
+  settingsWindow.on("will-resize", (event) => { event.preventDefault(); });
+
   console.log("ELECTRON_RENDERER_URL: ", process.env['ELECTRON_RENDERER_URL'])
 
     // Load the remote URL for development or the local html file for production.
@@ -880,6 +914,8 @@ function createSettingsWindow(viewName) {
   }
 
   settingsWindow.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    settingsWindow.setBounds({ width: windowConfig.width, height: windowConfig.height });
     settingsWindow.show();
 
     if (config.IsDebug()) {
@@ -913,8 +949,11 @@ function createUpdateWindow() {
     height: 400,
     maxWidth: config.UpdateWindowWidth,
     maxHeight: 600,
+    hasShadow: IsWindowHasShadow(),
 
-    resizable: false,
+    // On Windows resizable:true is required — see IsResizableWindow() for details.
+    // User drag-resizing is blocked via the 'will-resize' handler below.
+    resizable: IsResizableWindow(),
     fullscreenable: false,
     maximizable: false,
     minimizable: false,
@@ -929,6 +968,9 @@ function createUpdateWindow() {
 
   updateWindow = createBrowserWindow(windowConfig);
 
+  // Block user drag-resizing on Windows (see IsResizableWindow()).
+  updateWindow.on("will-resize", (event) => { event.preventDefault(); });
+
   // Load the remote URL for development or the local html file for production.
   if (process.env['ELECTRON_RENDERER_URL']) {
     updateWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + `#update`)
@@ -937,6 +979,8 @@ function createUpdateWindow() {
   }
 
   updateWindow.once("ready-to-show", () => {
+    // Enforce exact dimensions — Electron may create the window at a slightly different size.
+    updateWindow.setBounds({ width: windowConfig.width, height: windowConfig.height });
     updateWindow.show();
 
     if (config.IsDebug()) {

@@ -61,10 +61,8 @@ export async function GetOpenSSLBinaryPath() {
     case PlatformEnum.Linux:
       return "/usr/bin/openssl";
     case PlatformEnum.Windows: {
-      if (os.arch() === "x64") {
-        let dir = await winInstallFolder();
-        return `${dir}\\OpenVPN\\x86_64\\openssl.exe`;
-      } else throw new Error(`Not supported architecture: '${os.arch()}'`);
+      let dir = await winInstallFolder();
+      return `${dir}\\OpenVPN\\openssl.exe`;
     }
     default:
       throw new Error(`Not supported platform: '${os.platform()}'`);
