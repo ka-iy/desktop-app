@@ -21,6 +21,11 @@ silent() {
   "$@" > /dev/null 2>&1
 }
 
+# Set 755 on a directory and all its subdirectories
+ensure_dir_rights() {
+  find "$1" -type d -exec chmod 0755 {} + > /dev/null 2>&1
+}
+
 has_systemd() {
   # Some OS vendors put systemd in ... different places ...
   [ -d "/lib/systemd/system/" -o -d "/usr/lib/systemd/system" ] && silent command -v systemctl
@@ -122,6 +127,8 @@ install_apparmor_rules() {
 }
 
 echo "[+] Defining access rights for files ..."
+ensure_dir_rights $IVPN_OPT               # ensure 755 on /opt/ivpn and all subdirectories
+silent chmod 0755 $IVPN_ETC               # just in case, ensure 755 on /opt/ivpn
 silent chmod 0400 $IVPN_ETC/*             # can read only owner (root)
 silent chmod 0600 $IVPN_ETC/servers.json  # can read/wrire only owner (root)
 silent chmod 0700 $IVPN_ETC/*.sh          # can execute only owner (root)
