@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.  
 
+## Version 3.15.13 - 2026-07-15
+
+[IMPROVED] Upgraded Electron from v25 to v42 (UI framework refresh)   
+[IMPROVED] Upgraded Go toolchain to v1.26  
+[IMPROVED] Upgraded liboqs (KEM helper) to v0.15.0  
+[IMPROVED] System uptime is now included at the start of diagnostic logs  
+[FIX] Excluded servers no longer shown as fastest server selection  
+[FIX] Split Tunnel CLI: handle spaces in binary path  
+
+### Windows
+[IMPROVED] OpenVPN updated to v2.6.20; TAP driver updated to v9.27  
+[IMPROVED] WireGuard for Windows updated to v1.1  
+[FIX] Restricted service DACL - removed Everyone start/stop rights (security hardening)  
+[FIX] Firewall: fixed transaction abort and filter ordering  
+
+### macOS
+[IMPROVED] WireGuard-go updated to 0.0.20250522; WireGuard tools updated to v1.0.20260223  
+
+### Linux
+[IMPROVED] WireGuard tools updated to v1.0.20260223  
+[FIX] Fixed /opt/ivpn/etc directory permissions after install  
+[FIX] Diagnostic logs: added failover for missing "Extra Info" system utilities  
+[FIX] UI: suppressed debug/info log output to stdout  
+
+[Download IVPN Client for Windows x86_64](https://repo.ivpn.net/windows/bin/IVPN-Client-v3.15.13.exe)  
+SHA256: 0b0d8c53069a021f647a822a4a9dbb1e8ae4bd4d4464834972fb26882db85269  
+[Download IVPN Client for Windows arm64](https://repo.ivpn.net/windows/bin/IVPN-Client-v3.15.13-arm64.exe)  
+SHA256: 7fffbba42200841f4e5ee9533b114b530f7e78cb6c774982fc83ea6184ee5e7a  
+
+[Download IVPN Client for macOS (Intel)](https://repo.ivpn.net/macos/bin/IVPN-3.15.13.dmg)  
+SHA256: 6b182f89213bfb5950243ec664f5736434eeb1443d687e68789ed10461cbc485  
+[Download IVPN Client for macOS (M1)](https://repo.ivpn.net/macos/bin/IVPN-3.15.13-arm64.dmg)  
+SHA256: 8b56a35af8a4634d3e5dfd9d8b307e55a962e0f0e4927256c48a2ebbb53f6844  
+
+[Download IVPN Client for Linux x86_64 (DEB)](https://repo.ivpn.net/stable/pool/ivpn_3.15.13_amd64.deb)  
+SHA256: b22e0eae6ed88229aee3493d9ec939700de8b44b1e22a692a9e624ed4147160f  
+[Download IVPN Client UI for Linux x86_64 (DEB)](https://repo.ivpn.net/stable/pool/ivpn-ui_3.15.13_amd64.deb)  
+SHA256: 4cf591cb6a390bf8b0a6b8b59af65dbb83d0cd5928831a13fe066392990204e8  
+
+[Download IVPN Client for Linux x86_64 (RPM)](https://repo.ivpn.net/stable/pool/ivpn-3.15.13-1.x86_64.rpm)  
+SHA256: e375db89cbdd5953e553505c30cd6f88bdc51fd391e0647202bdadca5c013e1e  
+[Download IVPN Client UI for Linux x86_64 (RPM)](https://repo.ivpn.net/stable/pool/ivpn-ui-3.15.13-1.x86_64.rpm)  
+SHA256: ec296f9dff5bc7800eff5dd0c3f83dd93a9fadcc62704a0c36b13523d212349d  
+
+[Download IVPN Client for Linux arm64 (DEB)](https://repo.ivpn.net/stable/pool/ivpn_3.15.13_arm64.deb)  
+SHA256: 4e3ad741fed94a4c2aab2a7ec5ddc29e9b879199e6c5e32829b96ab132b9c590  
+[Download IVPN Client UI for Linux arm64 (DEB)](https://repo.ivpn.net/stable/pool/ivpn-ui_3.15.13_arm64.deb)  
+SHA256: da5ad7e74c995e8a5dc9a6625ffed2fab6ef0193223545ead0557ec0f2f4b6fa  
+
+[Download IVPN Client for Linux arm64 (RPM)](https://repo.ivpn.net/stable/pool/ivpn-3.15.13-1.aarch64.rpm)  
+SHA256: 500683bb10a246f205656bdc8b045828cb5abf26efd8b3761c196670961770fd  
+[Download IVPN Client UI for Linux arm64 (RPM)](https://repo.ivpn.net/stable/pool/ivpn-ui-3.15.13-1.aarch64.rpm)  
+SHA256: 5026d2e6aa64b24dbdcc308ce53b22514cc258d74002071b89c2cad18d08ba50   
+
 ## Version 3.15.6 - 2026-05-04
 
 [IMPROVED] [Portmaster](https://safing.io/) v2.1.18 compatibility  
