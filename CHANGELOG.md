@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## Version 3.15.13 - 2026-07-15
 
+**Breaking Change (macOS): This release requires macOS 12 Monterey or later.** If you are using an earlier version of macOS, please do not update, as this version of the app is not compatible with your system.
+
 [IMPROVED] Upgraded Electron from v25 to v42 (UI framework refresh)   
 [IMPROVED] Upgraded Go toolchain to v1.26  
 [IMPROVED] Upgraded liboqs (KEM helper) to v0.15.0  
